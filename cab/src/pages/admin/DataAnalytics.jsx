@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, Users, FileText, Filter } from 'lucide-react';
+import { TrendingUp, Users, FileText, Filter, AlertCircle, RefreshCw } from 'lucide-react';
+
+const API_BASE_URL = 'https://cab-project-spwl.onrender.com/api';
 
 export default function DataAnalytics() {
   const [data, setData] = useState([]);
+  const [comunidades, setComunidades] = useState([]);
+  const [categorias, setCategorias] = useState([]);
   const [filters, setFilters] = useState({
     comunidad: '',
     categoria: '',
@@ -15,16 +19,31 @@ export default function DataAnalytics() {
     totalComunidades: 0,
     totalCategorias: 0
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Datos de ejemplo
-  const mockData = [
-    { id: 1, comunidad: 'Comunidad A', pregunta: '¿Calidad del servicio?', respuesta: 'Excelente', categoria: 'Satisfacción', fecha: '2024-10-20' },
-    { id: 2, comunidad: 'Comunidad B', pregunta: '¿Frecuencia de uso?', respuesta: 'Diario', categoria: 'Uso', fecha: '2024-10-21' },
-    { id: 3, comunidad: 'Comunidad A', pregunta: '¿Recomendaría?', respuesta: 'Sí', categoria: 'Satisfacción', fecha: '2024-10-22' },
-    { id: 4, comunidad: 'Comunidad C', pregunta: '¿Calidad del servicio?', respuesta: 'Bueno', categoria: 'Satisfacción', fecha: '2024-10-22' },
-    { id: 5, comunidad: 'Comunidad B', pregunta: '¿Calidad del servicio?', respuesta: 'Regular', categoria: 'Satisfacción', fecha: '2024-10-23' },
-    { id: 6, comunidad: 'Comunidad A', pregunta: '¿Frecuencia de uso?', respuesta: 'Semanal', categoria: 'Uso', fecha: '2024-10-23' },
-  ];
+  // Generar datos de ejemplo si no hay endpoint de encuestas
+  const generateMockData = (comunidadesData, categoriasData) => {
+    const mockData = [];
+    const respuestas = ['Excelente', 'Bueno', 'Regular', 'Malo'];
+    const preguntas = ['¿Calidad del servicio?', '¿Frecuencia de uso?', '¿Recomendaría?'];
+    
+    for (let i = 1; i <= 20; i++) {
+      const comunidad = comunidadesData[Math.floor(Math.random() * comunidadesData.length)];
+      const categoria = categoriasData[Math.floor(Math.random() * categoriasData.length)];
+      
+      mockData.push({
+        id: i,
+        comunidad: comunidad.nombre || comunidad,
+        pregunta: preguntas[Math.floor(Math.random() * preguntas.length)],
+        respuesta: respuestas[Math.floor(Math.random() * respuestas.length)],
+        categoria: categoria,
+        fecha: new Date(2024, 9, Math.floor(Math.random() * 30) + 1).toISOString().split('T')[0]
+      });
+    }
+    
+    return mockData;
+  };
 
   useEffect(() => {
     loadData();
@@ -34,19 +53,86 @@ export default function DataAnalytics() {
     calculateStats();
   }, [data, filters]);
 
-  const loadData = () => {
-    setData(mockData);
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Cargar datos en paralelo
+      const [comunidadesRes, categoriasRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/comunidades`),
+        fetch(`${API_BASE_URL}/categorias-preguntas`)
+      ]);
+
+      if (!comunidadesRes.ok || !categoriasRes.ok) {
+        throw new Error('Error al cargar los datos desde la API');
+      }
+
+      const comunidadesData = await comunidadesRes.json();
+      const categoriasData = await categoriasRes.json();
+
+      // Debug: Ver qué estructura tiene la respuesta
+      console.log('Datos de categorías recibidos:', categoriasData);
+
+      // Procesar comunidades
+      setComunidades(comunidadesData);
+
+      // Extraer categorías únicas - intentar diferentes estructuras posibles
+      let categoriasUnicas = [];
+      
+      if (Array.isArray(categoriasData)) {
+        // Si es un array de objetos con campo 'categoria'
+        if (categoriasData.length > 0 && categoriasData[0].categoria) {
+          categoriasUnicas = [...new Set(categoriasData.map(item => item.categoria))];
+        }
+        // Si es un array de strings directamente
+        else if (typeof categoriasData[0] === 'string') {
+          categoriasUnicas = [...new Set(categoriasData)];
+        }
+        // Si tiene otro nombre de campo
+        else if (categoriasData[0].nombre) {
+          categoriasUnicas = [...new Set(categoriasData.map(item => item.nombre))];
+        }
+      }
+      
+      console.log('Categorías procesadas:', categoriasUnicas);
+      setCategorias(categoriasUnicas);
+
+      // Intentar cargar encuestas (ajusta el endpoint según tu API)
+      try {
+        const surveysRes = await fetch(`${API_BASE_URL}/encuestas`);
+        if (surveysRes.ok) {
+          const surveysData = await surveysRes.json();
+          setData(surveysData);
+        } else {
+          // Si no existe el endpoint, usar datos mock
+          console.warn('Endpoint /encuestas no disponible, usando datos de ejemplo');
+          const mockData = generateMockData(comunidadesData, categoriasUnicas);
+          setData(mockData);
+        }
+      } catch (err) {
+        console.warn('Error cargando encuestas, usando datos de ejemplo');
+        const mockData = generateMockData(comunidadesData, categoriasUnicas);
+        setData(mockData);
+      }
+
+      setLoading(false);
+    } catch (err) {
+      console.error('Error cargando datos:', err);
+      setError('No se pudieron cargar los datos. Verifica tu conexión.');
+      setLoading(false);
+    }
   };
 
   const calculateStats = () => {
     const filtered = getFilteredData();
-    const comunidades = new Set(filtered.map(d => d.comunidad));
-    const categorias = new Set(filtered.map(d => d.categoria));
+    const comunidadesSet = new Set(filtered.map(d => d.comunidad));
+    const categoriasSet = new Set(filtered.map(d => d.categoria));
 
     setStats({
       totalEncuestas: filtered.length,
-      totalComunidades: comunidades.size,
-      totalCategorias: categorias.size
+      totalComunidades: comunidadesSet.size,
+      totalCategorias: categoriasSet.size
     });
   };
 
@@ -54,7 +140,10 @@ export default function DataAnalytics() {
     let filtered = [...data];
 
     if (filters.comunidad) {
-      filtered = filtered.filter(d => d.comunidad === filters.comunidad);
+      filtered = filtered.filter(d => {
+        const comunidadNombre = typeof d.comunidad === 'object' ? d.comunidad.nombre : d.comunidad;
+        return comunidadNombre === filters.comunidad;
+      });
     }
     if (filters.categoria) {
       filtered = filtered.filter(d => d.categoria === filters.categoria);
@@ -74,7 +163,8 @@ export default function DataAnalytics() {
     const comunidadCount = {};
     
     filtered.forEach(item => {
-      comunidadCount[item.comunidad] = (comunidadCount[item.comunidad] || 0) + 1;
+      const comunidadNombre = typeof item.comunidad === 'object' ? item.comunidad.nombre : item.comunidad;
+      comunidadCount[comunidadNombre] = (comunidadCount[comunidadNombre] || 0) + 1;
     });
 
     return Object.entries(comunidadCount).map(([name, value]) => ({
@@ -99,13 +189,43 @@ export default function DataAnalytics() {
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
-  const comunidades = [...new Set(data.map(d => d.comunidad))];
-  const categorias = [...new Set(data.map(d => d.categoria))];
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
+          <div className="flex items-center gap-3 text-red-800">
+            <AlertCircle className="w-6 h-6" />
+            <div>
+              <h3 className="font-semibold">Error al cargar datos</h3>
+              <p className="text-sm mt-1">{error}</p>
+            </div>
+          </div>
+          <button
+            onClick={loadData}
+            className="mt-4 w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-8">Analítica de Datos</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold text-gray-800">Analítica de Datos</h1>
+          <button
+            onClick={loadData}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </button>
+        </div>
 
         {/* Filtros */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -125,8 +245,10 @@ export default function DataAnalytics() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Todas</option>
-                {comunidades.map(c => (
-                  <option key={c} value={c}>{c}</option>
+                {comunidades.map((c, idx) => (
+                  <option key={idx} value={c.nombre || c}>
+                    {c.nombre || c}
+                  </option>
                 ))}
               </select>
             </div>
@@ -141,8 +263,10 @@ export default function DataAnalytics() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Todas</option>
-                {categorias.map(c => (
-                  <option key={c} value={c}>{c}</option>
+                {categorias.map((c, idx) => (
+                  <option key={idx} value={c}>
+                    {c}
+                  </option>
                 ))}
               </select>
             </div>
@@ -173,119 +297,151 @@ export default function DataAnalytics() {
           </div>
         </div>
 
-        {/* Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Encuestas</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalEncuestas}</p>
+        {loading ? (
+          <div className="text-center py-12 bg-white rounded-lg shadow-md">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
+            <p className="mt-4 text-gray-600">Cargando datos...</p>
+          </div>
+        ) : (
+          <>
+            {/* Estadísticas */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total Encuestas</p>
+                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalEncuestas}</p>
+                  </div>
+                  <div className="bg-blue-100 p-3 rounded-full">
+                    <FileText className="w-8 h-8 text-blue-600" />
+                  </div>
+                </div>
               </div>
-              <div className="bg-blue-100 p-3 rounded-full">
-                <FileText className="w-8 h-8 text-blue-600" />
+
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Comunidades</p>
+                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalComunidades}</p>
+                  </div>
+                  <div className="bg-green-100 p-3 rounded-full">
+                    <Users className="w-8 h-8 text-green-600" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Categorías</p>
+                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalCategorias}</p>
+                  </div>
+                  <div className="bg-purple-100 p-3 rounded-full">
+                    <TrendingUp className="w-8 h-8 text-purple-600" />
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Comunidades</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalComunidades}</p>
+            {/* Gráficas */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              {/* Gráfica de Barras */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Encuestas por Comunidad</h3>
+                {getChartData().length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={getChartData()}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="encuestas" fill="#3B82F6" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-gray-500">
+                    No hay datos para mostrar
+                  </div>
+                )}
               </div>
-              <div className="bg-green-100 p-3 rounded-full">
-                <Users className="w-8 h-8 text-green-600" />
+
+              {/* Gráfica de Pastel */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Distribución por Categoría</h3>
+                {getCategoryData().length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={getCategoryData()}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {getCategoryData().map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-gray-500">
+                    No hay datos para mostrar
+                  </div>
+                )}
               </div>
             </div>
-          </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Categorías</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalCategorias}</p>
-              </div>
-              <div className="bg-purple-100 p-3 rounded-full">
-                <TrendingUp className="w-8 h-8 text-purple-600" />
+            {/* Tabla de Datos */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Detalle de Encuestas</h3>
+              <div className="overflow-x-auto">
+                {getFilteredData().length > 0 ? (
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b-2 border-gray-200">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Comunidad</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pregunta</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {getFilteredData().map((item) => {
+                        const comunidadNombre = typeof item.comunidad === 'object' ? item.comunidad.nombre : item.comunidad;
+                        return (
+                          <tr key={item.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.id}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{comunidadNombre}</td>
+                            <td className="px-6 py-4 text-sm text-gray-900">{item.pregunta}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                {item.categoria}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {item.fecha ? new Date(item.fecha).toLocaleDateString() : '-'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    No hay datos disponibles con los filtros seleccionados
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Gráficas */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Gráfica de Barras */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Encuestas por Comunidad</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={getChartData()}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="encuestas" fill="#3B82F6" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Gráfica de Pastel */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Distribución por Categoría</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={getCategoryData()}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {getCategoryData().map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Tabla de Datos */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Detalle de Encuestas</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b-2 border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Comunidad</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pregunta</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {getFilteredData().map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.id}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.comunidad}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{item.pregunta}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                        {item.categoria}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.fecha}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </div>
   );
