@@ -110,11 +110,13 @@ export default function DataAnalytics() {
           const mockData = generateMockData(comunidadesData, categoriasUnicas);
           setData(mockData);
         }
-      } catch (err) {
-        console.warn('Error cargando encuestas, usando datos de ejemplo');
-        const mockData = generateMockData(comunidadesData, categoriasUnicas);
-        setData(mockData);
-      }
+        
+} catch {
+  console.warn('Error cargando encuestas, usando datos de ejemplo');
+  const mockData = generateMockData(comunidadesData, categoriasUnicas);
+  setData(mockData);
+}
+
 
       setLoading(false);
     } catch (err) {
