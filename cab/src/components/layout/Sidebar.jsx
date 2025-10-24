@@ -11,10 +11,11 @@ const Sidebar = () => {
     { path: '/admin/dashboard', label: 'Dashboard', icon: '🏠' },
     { path: '/admin/users', label: 'Gestión de Usuarios', icon: '👥' },
     { path: '/admin/surveys', label: 'Crear Encuestas', icon: '📝' },
-    { path: '/admin/analytics', label: 'Analítica Global', icon: '📊' },
+    { path: '/admin/DataAnalytics', label: 'Analítica Global', icon: '📊' },
   ];
 
   const surveyorLinks = [
+    { path: '/surveyor/DataViewer', label: 'Analitica Global', icon: '📊' },
     { path: '/surveyor/list', label: 'Encuestas Disponibles', icon: '📋' },
     { path: '/surveyor/viewer', label: 'Mis Datos', icon: '🔎' },
   ];
