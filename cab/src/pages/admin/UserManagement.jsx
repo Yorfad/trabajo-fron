@@ -43,7 +43,7 @@ function UserManagement () {
 
     //5. REnderizado de la tabla con los datos (usando Tailwind)
     return (
-        <div className="container mx-auto p-6">
+        <div className="p-6">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold">Gestion de usuarios</h1>
                 <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow">
