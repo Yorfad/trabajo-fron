@@ -1,16 +1,20 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, Users, FileText, Filter, AlertCircle } from 'lucide-react';
+import { TrendingUp, Users, FileText, Filter, AlertCircle, RefreshCw } // <-- Añadido RefreshCw
+  from 'lucide-react';
 
 const API_BASE_URL = 'https://cab-project-spwl.onrender.com/api';
 
-export default function DataAnalytics() {
+// Cambiado el nombre de la función para que coincida con el nombre del archivo
+export default function DataViewer() { 
   const [data, setData] = useState([]);
   const [comunidades, setComunidades] = useState([]);
   const [categorias, setCategorias] = useState([]);
+  const [preguntas, setPreguntas] = useState([]); // <-- NUEVO ESTADO
   const [filters, setFilters] = useState({
     comunidad: '',
     categoria: '',
+    pregunta: '', // <-- NUEVO FILTRO
     fechaInicio: '',
     fechaFin: ''
   });
@@ -29,6 +33,14 @@ export default function DataAnalytics() {
   useEffect(() => {
     calculateStats();
   }, [data, filters]);
+
+  // <-- NUEVO USEEFFECT para popular las preguntas -->
+  useEffect(() => {
+    if (data.length > 0) {
+      const uniquePreguntas = [...new Set(data.map(item => item.pregunta).filter(Boolean))];
+      setPreguntas(uniquePreguntas);
+    }
+  }, [data]);
 
   const loadInitialData = async () => {
     setLoading(true);
@@ -50,12 +62,27 @@ export default function DataAnalytics() {
 
       setComunidades(comunidadesData);
       
-      const categoriasUnicas = [...new Set(categoriasData.map(item => item.categoria))];
+      // Ajustado para ser más robusto como en DataAnalytics
+      let categoriasUnicas = [];
+      if (Array.isArray(categoriasData)) {
+        if (categoriasData.length > 0 && categoriasData[0].categoria) {
+          categoriasUnicas = [...new Set(categoriasData.map(item => item.categoria))];
+        } else if (typeof categoriasData[0] === 'string') {
+          categoriasUnicas = [...new Set(categoriasData)];
+        } else if (categoriasData[0].nombre) {
+          categoriasUnicas = [...new Set(categoriasData.map(item => item.nombre))];
+        }
+      }
       setCategorias(categoriasUnicas);
 
       if (surveysRes.ok) {
         const surveysData = await surveysRes.json();
         setData(surveysData);
+      } else {
+        // Añadido fallback a mock data (opcional, pero bueno tenerlo)
+        console.warn('Endpoint /encuestas no disponible, usando datos de ejemplo');
+        const mockData = generateMockData(comunidadesData, categoriasUnicas);
+        setData(mockData);
       }
 
       setLoading(false);
@@ -63,7 +90,35 @@ export default function DataAnalytics() {
       console.error('Error cargando datos:', err);
       setError('No se pudieron cargar los datos. Por favor, intenta nuevamente.');
       setLoading(false);
+      // Fallback si todo falla
+      const mockComunidades = ['Comunidad A', 'Comunidad B'];
+      const mockCategorias = ['Servicios', 'Infraestructura'];
+      setComunidades(mockComunidades);
+      setCategorias(mockCategorias);
+      setData(generateMockData(mockComunidades, mockCategorias));
     }
+  };
+  
+  // (Faltaba esta función en tu DataViewer.jsx, la tomo de DataAnalytics)
+  const generateMockData = (comunidadesData, categoriasData) => {
+    const mockData = [];
+    const respuestas = ['Excelente', 'Bueno', 'Regular', 'Malo'];
+    const preguntas = ['¿Calidad del servicio?', '¿Frecuencia de uso?', '¿Recomendaría?'];
+    
+    for (let i = 1; i <= 20; i++) {
+      const comunidad = comunidadesData[Math.floor(Math.random() * comunidadesData.length)];
+      const categoria = categoriasData[Math.floor(Math.random() * categoriasData.length)];
+      
+      mockData.push({
+        id: i,
+        comunidad: comunidad.nombre || comunidad,
+        pregunta: preguntas[Math.floor(Math.random() * preguntas.length)],
+        respuesta: respuestas[Math.floor(Math.random() * respuestas.length)],
+        categoria: categoria,
+        fecha: new Date(2024, 9, Math.floor(Math.random() * 30) + 1).toISOString().split('T')[0]
+      });
+    }
+    return mockData;
   };
 
   const calculateStats = () => {
@@ -82,24 +137,23 @@ export default function DataAnalytics() {
     let filtered = [...data];
 
     if (filters.comunidad) {
-      filtered = filtered.filter(d => 
-        d.comunidad?.toLowerCase() === filters.comunidad.toLowerCase()
-      );
+      filtered = filtered.filter(d => {
+        const comunidadNombre = typeof d.comunidad === 'object' ? d.comunidad.nombre : d.comunidad;
+        return comunidadNombre === filters.comunidad;
+      });
     }
     if (filters.categoria) {
-      filtered = filtered.filter(d => 
-        d.categoria?.toLowerCase() === filters.categoria.toLowerCase()
-      );
+      filtered = filtered.filter(d => d.categoria === filters.categoria);
+    }
+    // <-- NUEVO FILTRO DE PREGUNTA -->
+    if (filters.pregunta) {
+      filtered = filtered.filter(d => d.pregunta === filters.pregunta);
     }
     if (filters.fechaInicio) {
-      filtered = filtered.filter(d => 
-        d.fecha && d.fecha >= filters.fechaInicio
-      );
+      filtered = filtered.filter(d => d.fecha && d.fecha >= filters.fechaInicio);
     }
     if (filters.fechaFin) {
-      filtered = filtered.filter(d => 
-        d.fecha && d.fecha <= filters.fechaFin
-      );
+      filtered = filtered.filter(d => d.fecha && d.fecha <= filters.fechaFin);
     }
 
     return filtered;
@@ -110,8 +164,8 @@ export default function DataAnalytics() {
     const comunidadCount = {};
     
     filtered.forEach(item => {
-      const comunidad = item.comunidad || 'Sin comunidad';
-      comunidadCount[comunidad] = (comunidadCount[comunidad] || 0) + 1;
+      const comunidadNombre = (typeof item.comunidad === 'object' ? item.comunidad.nombre : item.comunidad) || 'Sin comunidad';
+      comunidadCount[comunidadNombre] = (comunidadCount[comunidadNombre] || 0) + 1;
     });
 
     return Object.entries(comunidadCount).map(([name, value]) => ({
@@ -135,7 +189,43 @@ export default function DataAnalytics() {
     }));
   };
 
+  // <-- NUEVA FUNCIÓN PARA DATOS DE RESPUESTAS -->
+  const getAnswerData = () => {
+    const filtered = getFilteredData();
+    const answerCount = {};
+    
+    filtered.forEach(item => {
+      const respuesta = item.respuesta || 'Sin respuesta';
+      answerCount[respuesta] = (answerCount[respuesta] || 0) + 1;
+    });
+
+    const barData = Object.entries(answerCount).map(([name, value]) => ({
+      name,
+      encuestas: value
+    }));
+    
+    const pieData = Object.entries(answerCount).map(([name, value]) => ({
+      name,
+      value
+    }));
+    
+    return { barData, pieData };
+  };
+
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+
+  // Preparar datos para las gráficas
+  const chartComunidadData = getChartData();
+  const chartCategoriaData = getCategoryData();
+  
+  let chartAnswerBarData = [];
+  let chartAnswerPieData = [];
+  
+  if (filters.pregunta) {
+    const { barData, pieData } = getAnswerData();
+    chartAnswerBarData = barData;
+    chartAnswerPieData = pieData;
+  }
 
   if (error) {
     return (
@@ -162,7 +252,17 @@ export default function DataAnalytics() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-8">Analítica de Datos</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold text-gray-800">Visualización de Datos</h1>
+          <button
+            onClick={loadInitialData}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </button>
+        </div>
 
         {/* Filtros */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -171,7 +271,8 @@ export default function DataAnalytics() {
             <h2 className="text-xl font-semibold text-gray-800">Filtros</h2>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* <-- GRID CAMBIADO A 5 COLUMNAS --> */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Comunidad
@@ -208,6 +309,25 @@ export default function DataAnalytics() {
               </select>
             </div>
 
+            {/* <-- NUEVO FILTRO DE PREGUNTA --> */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Pregunta
+              </label>
+              <select
+                value={filters.pregunta}
+                onChange={(e) => setFilters(prev => ({ ...prev, pregunta: e.target.value }))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Todas</option>
+                {preguntas.map((p, idx) => (
+                  <option key={idx} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Fecha Inicio
@@ -236,6 +356,7 @@ export default function DataAnalytics() {
 
         {/* Estadísticas */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          {/* ... (sin cambios) ... */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -247,7 +368,6 @@ export default function DataAnalytics() {
               </div>
             </div>
           </div>
-
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -259,7 +379,6 @@ export default function DataAnalytics() {
               </div>
             </div>
           </div>
-
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -280,45 +399,61 @@ export default function DataAnalytics() {
           </div>
         ) : (
           <>
-            {/* Gráficas */}
+            {/* Gráficas (Condicionales) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               {/* Gráfica de Barras */}
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Encuestas por Comunidad</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={getChartData()}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="encuestas" fill="#3B82F6" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                  {filters.pregunta ? `Respuestas: ${filters.pregunta}` : 'Encuestas por Comunidad'}
+                </h3>
+                {(filters.pregunta ? chartAnswerBarData.length : chartComunidadData.length) > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={filters.pregunta ? chartAnswerBarData : chartComunidadData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="encuestas" fill="#3B82F6" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-gray-500">
+                    No hay datos para mostrar
+                  </div>
+                )}
               </div>
 
               {/* Gráfica de Pastel */}
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Distribución por Categoría</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={getCategoryData()}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {getCategoryData().map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                  {filters.pregunta ? 'Distribución de Respuestas' : 'Distribución por Categoría'}
+                </h3>
+                {(filters.pregunta ? chartAnswerPieData.length : chartCategoriaData.length) > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={filters.pregunta ? chartAnswerPieData : chartCategoriaData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {(filters.pregunta ? chartAnswerPieData : chartCategoriaData).map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-gray-500">
+                    No hay datos para mostrar
+                  </div>
+                )}
               </div>
             </div>
 
@@ -337,26 +472,31 @@ export default function DataAnalytics() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Comunidad</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pregunta</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Respuesta</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {getFilteredData().map((item) => (
-                        <tr key={item.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.id}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.comunidad}</td>
-                          <td className="px-6 py-4 text-sm text-gray-900">{item.pregunta}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                              {item.categoria}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {item.fecha ? new Date(item.fecha).toLocaleDateString() : '-'}
-                          </td>
-                        </tr>
-                      ))}
+                      {getFilteredData().map((item) => {
+                        const comunidadNombre = typeof item.comunidad === 'object' ? item.comunidad.nombre : item.comunidad;
+                        return (
+                          <tr key={item.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.id}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{comunidadNombre}</td>
+                            <td className="px-6 py-4 text-sm text-gray-900">{item.pregunta}</td>
+                            <td className="px-6 py-4 text-sm text-gray-900">{item.respuesta}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                {item.categoria}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {item.fecha ? new Date(item.fecha).toLocaleDateString() : '-'}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}

@@ -8,9 +8,11 @@ export default function DataAnalytics() {
   const [data, setData] = useState([]);
   const [comunidades, setComunidades] = useState([]);
   const [categorias, setCategorias] = useState([]);
+  const [preguntas, setPreguntas] = useState([]); // <-- NUEVO ESTADO
   const [filters, setFilters] = useState({
     comunidad: '',
     categoria: '',
+    pregunta: '', // <-- NUEVO FILTRO
     fechaInicio: '',
     fechaFin: ''
   });
@@ -53,6 +55,14 @@ export default function DataAnalytics() {
     calculateStats();
   }, [data, filters]);
 
+  // <-- NUEVO USEEFFECT para popular las preguntas -->
+  useEffect(() => {
+    if (data.length > 0) {
+      const uniquePreguntas = [...new Set(data.map(item => item.pregunta).filter(Boolean))];
+      setPreguntas(uniquePreguntas);
+    }
+  }, [data]);
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
@@ -71,25 +81,21 @@ export default function DataAnalytics() {
       const comunidadesData = await comunidadesRes.json();
       const categoriasData = await categoriasRes.json();
 
-      // Debug: Ver qué estructura tiene la respuesta
       console.log('Datos de categorías recibidos:', categoriasData);
 
       // Procesar comunidades
       setComunidades(comunidadesData);
 
-      // Extraer categorías únicas - intentar diferentes estructuras posibles
+      // Extraer categorías únicas
       let categoriasUnicas = [];
       
       if (Array.isArray(categoriasData)) {
-        // Si es un array de objetos con campo 'categoria'
         if (categoriasData.length > 0 && categoriasData[0].categoria) {
           categoriasUnicas = [...new Set(categoriasData.map(item => item.categoria))];
         }
-        // Si es un array de strings directamente
         else if (typeof categoriasData[0] === 'string') {
           categoriasUnicas = [...new Set(categoriasData)];
         }
-        // Si tiene otro nombre de campo
         else if (categoriasData[0].nombre) {
           categoriasUnicas = [...new Set(categoriasData.map(item => item.nombre))];
         }
@@ -98,25 +104,23 @@ export default function DataAnalytics() {
       console.log('Categorías procesadas:', categoriasUnicas);
       setCategorias(categoriasUnicas);
 
-      // Intentar cargar encuestas (ajusta el endpoint según tu API)
+      // Intentar cargar encuestas
       try {
         const surveysRes = await fetch(`${API_BASE_URL}/encuestas`);
         if (surveysRes.ok) {
           const surveysData = await surveysRes.json();
           setData(surveysData);
         } else {
-          // Si no existe el endpoint, usar datos mock
           console.warn('Endpoint /encuestas no disponible, usando datos de ejemplo');
           const mockData = generateMockData(comunidadesData, categoriasUnicas);
           setData(mockData);
         }
         
-} catch {
-  console.warn('Error cargando encuestas, usando datos de ejemplo');
-  const mockData = generateMockData(comunidadesData, categoriasUnicas);
-  setData(mockData);
-}
-
+      } catch {
+        console.warn('Error cargando encuestas, usando datos de ejemplo');
+        const mockData = generateMockData(comunidadesData, categoriasUnicas);
+        setData(mockData);
+      }
 
       setLoading(false);
     } catch (err) {
@@ -149,6 +153,10 @@ export default function DataAnalytics() {
     }
     if (filters.categoria) {
       filtered = filtered.filter(d => d.categoria === filters.categoria);
+    }
+    // <-- NUEVO FILTRO DE PREGUNTA -->
+    if (filters.pregunta) {
+      filtered = filtered.filter(d => d.pregunta === filters.pregunta);
     }
     if (filters.fechaInicio) {
       filtered = filtered.filter(d => d.fecha >= filters.fechaInicio);
@@ -189,7 +197,46 @@ export default function DataAnalytics() {
     }));
   };
 
+  // <-- NUEVA FUNCIÓN PARA DATOS DE RESPUESTAS -->
+  const getAnswerData = () => {
+    // getFilteredData ya habrá filtrado por la pregunta seleccionada
+    const filtered = getFilteredData(); 
+    const answerCount = {};
+    
+    filtered.forEach(item => {
+      const respuesta = item.respuesta || 'Sin respuesta';
+      answerCount[respuesta] = (answerCount[respuesta] || 0) + 1;
+    });
+
+    // Formato para BarChart
+    const barData = Object.entries(answerCount).map(([name, value]) => ({
+      name,
+      encuestas: value 
+    }));
+    
+    // Formato para PieChart
+    const pieData = Object.entries(answerCount).map(([name, value]) => ({
+      name,
+      value 
+    }));
+    
+    return { barData, pieData };
+  };
+
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+
+  // Preparar datos para las gráficas antes del return
+  const chartComunidadData = getChartData();
+  const chartCategoriaData = getCategoryData();
+  
+  let chartAnswerBarData = [];
+  let chartAnswerPieData = [];
+  
+  if (filters.pregunta) {
+    const { barData, pieData } = getAnswerData();
+    chartAnswerBarData = barData;
+    chartAnswerPieData = pieData;
+  }
 
   if (error) {
     return (
@@ -236,7 +283,8 @@ export default function DataAnalytics() {
             <h2 className="text-xl font-semibold text-gray-800">Filtros</h2>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* <-- GRID CAMBIADO A 5 COLUMNAS --> */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Comunidad
@@ -268,6 +316,25 @@ export default function DataAnalytics() {
                 {categorias.map((c, idx) => (
                   <option key={idx} value={c}>
                     {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* <-- NUEVO FILTRO DE PREGUNTA --> */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Pregunta
+              </label>
+              <select
+                value={filters.pregunta}
+                onChange={(e) => setFilters(prev => ({ ...prev, pregunta: e.target.value }))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Todas</option>
+                {preguntas.map((p, idx) => (
+                  <option key={idx} value={p}>
+                    {p}
                   </option>
                 ))}
               </select>
@@ -308,6 +375,7 @@ export default function DataAnalytics() {
           <>
             {/* Estadísticas */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              {/* ... (sin cambios en las tarjetas de estadísticas) ... */}
               <div className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -319,7 +387,6 @@ export default function DataAnalytics() {
                   </div>
                 </div>
               </div>
-
               <div className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -331,7 +398,6 @@ export default function DataAnalytics() {
                   </div>
                 </div>
               </div>
-
               <div className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -347,12 +413,14 @@ export default function DataAnalytics() {
 
             {/* Gráficas */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              {/* Gráfica de Barras */}
+              {/* Gráfica de Barras (Condicional) */}
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Encuestas por Comunidad</h3>
-                {getChartData().length > 0 ? (
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                  {filters.pregunta ? `Respuestas: ${filters.pregunta}` : 'Encuestas por Comunidad'}
+                </h3>
+                {(filters.pregunta ? chartAnswerBarData.length : chartComunidadData.length) > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={getChartData()}>
+                    <BarChart data={filters.pregunta ? chartAnswerBarData : chartComunidadData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis />
@@ -368,14 +436,16 @@ export default function DataAnalytics() {
                 )}
               </div>
 
-              {/* Gráfica de Pastel */}
+              {/* Gráfica de Pastel (Condicional) */}
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Distribución por Categoría</h3>
-                {getCategoryData().length > 0 ? (
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                  {filters.pregunta ? 'Distribución de Respuestas' : 'Distribución por Categoría'}
+                </h3>
+                {(filters.pregunta ? chartAnswerPieData.length : chartCategoriaData.length) > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
-                        data={getCategoryData()}
+                        data={filters.pregunta ? chartAnswerPieData : chartCategoriaData}
                         cx="50%"
                         cy="50%"
                         labelLine={false}
@@ -384,7 +454,7 @@ export default function DataAnalytics() {
                         fill="#8884d8"
                         dataKey="value"
                       >
-                        {getCategoryData().map((entry, index) => (
+                        {(filters.pregunta ? chartAnswerPieData : chartCategoriaData).map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
@@ -400,6 +470,7 @@ export default function DataAnalytics() {
             </div>
 
             {/* Tabla de Datos */}
+            {/* ... (sin cambios en la tabla) ... */}
             <div className="bg-white rounded-lg shadow-md p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Detalle de Encuestas</h3>
               <div className="overflow-x-auto">
@@ -410,6 +481,8 @@ export default function DataAnalytics() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Comunidad</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pregunta</th>
+                        {/* Añadí respuesta para que sea visible */}
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Respuesta</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
                       </tr>
@@ -422,6 +495,7 @@ export default function DataAnalytics() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.id}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{comunidadNombre}</td>
                             <td className="px-6 py-4 text-sm text-gray-900">{item.pregunta}</td>
+                            <td className="px-6 py-4 text-sm text-gray-900">{item.respuesta}</td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                                 {item.categoria}
