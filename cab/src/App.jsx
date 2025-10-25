@@ -11,20 +11,17 @@ import SurveyForm from './pages/admin/SurveyForm'; // <-- 1. IMPORTACIÓN AÑADI
 import SurveyList from './pages/Surveyor/SurveyList';
 import AppLayout from './components/layout/AppLayout';
 import DataViewer from './pages/Surveyor/DataViewer';
-// ...otras vistas...
+import DataAnalytics from './pages/admin/DataAnalytics'; // ← AGREGAR ESTA LÍNEA
 
 const App = () => {
     return (
         <Routes>
-
             <Route path="/" element={<Login />} />
-            {/* Rutas Públicas (Login) */}
             <Route path="/login" element={<Login />} />
-            {/* ... */}
 
             {/* RUTAS PROTEGIDAS PARA ADMINISTRADOR */}
             <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-                <Route element={<AppLayout />}> {/* Usa AppLayout */}
+                <Route element={<AppLayout />}>
                     <Route path="/admin/dashboard" element={<DashboardAdmin />} />
                     <Route path="/admin/users" element={<UserManagement />} />
                     <Route path="/admin/surveys" element={<SurveyManagement />} />
@@ -38,14 +35,11 @@ const App = () => {
 
             {/* RUTAS PROTEGIDAS PARA ENCUESTADOR */}
             <Route element={<ProtectedRoute allowedRoles={['surveyor', 'admin']} />}>
-                <Route element={<AppLayout />}> {/* Usa AppLayout */}
+                <Route element={<AppLayout />}>
                     <Route path="/surveyor/list" element={<SurveyList />} />
                     <Route path="/surveyor/viewer" element={<DataViewer />} />
-                    {/* ... */}
                 </Route>
             </Route>
-            
-            {/* ... */}
         </Routes>
     );
 };

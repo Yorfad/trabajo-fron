@@ -13,33 +13,33 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     const normalizeRole = (raw) => {
-  const r = String(raw || '').toLowerCase();
-  // tu backend usa "Admin" y "Encuestador"
-  if (r === 'encuestador') return 'surveyor';
-  if (r === 'admin') return 'admin';
-  return r || 'surveyor';
-};
+        const r = String(raw || '').toLowerCase();
+        // tu backend usa "Admin" y "Encuestador"
+        if (r === 'encuestador') return 'surveyor';
+        if (r === 'admin') return 'admin';
+        return r || 'surveyor';
+    };
 
-useEffect(() => {
-  const token = localStorage.getItem('jwt_token');
-  if (token) {
-    try {
-      const decoded = jwtDecode(token);
-      if (decoded.exp * 1000 > Date.now()) {
-        const rawRole =
-          decoded.role || decoded.rol || decoded.roleName || decoded?.user?.role;
-        setIsAuthenticated(true);
-        setUserRole(normalizeRole(rawRole));
-      } else {
+    useEffect(() => {
+    const token = localStorage.getItem('jwt_token');
+    if (token) {
+        try {
+        const decoded = jwtDecode(token);
+        if (decoded.exp * 1000 > Date.now()) {
+            const rawRole =
+            decoded.role || decoded.rol || decoded.roleName || decoded?.user?.role;
+            setIsAuthenticated(true);
+            setUserRole(normalizeRole(rawRole));
+        } else {
+            handleLogout();
+        }
+        } catch (e) {
+        console.error('Token inválido:', e);
         handleLogout();
-      }
-    } catch (e) {
-      console.error('Token inválido:', e);
-      handleLogout();
+        }
     }
-  }
-  setLoading(false);
-}, []);
+    setLoading(false);
+    }, []);
 
     // Función de Login
 const handleLogin = async (credentials) => {
