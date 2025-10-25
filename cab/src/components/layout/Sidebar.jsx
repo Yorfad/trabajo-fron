@@ -7,17 +7,19 @@ const Sidebar = () => {
   const { userRole } = useAuth();
   const isAdmin = (userRole || '').toLowerCase() === 'admin';
 
-  const adminLinks = [
-    { path: '/admin/dashboard', label: 'Dashboard', icon: '🏠' },
-    { path: '/admin/users', label: 'Gestión de Usuarios', icon: '👥' },
-    { path: '/admin/surveys', label: 'Crear Encuestas', icon: '📝' },
-    { path: '/admin/analytics', label: 'Analítica Global', icon: '📊' },
-  ];
+const adminLinks = [
+  { path: '/admin/dashboard', label: 'Dashboard', icon: '🏠' },
+  { path: '/admin/users', label: 'Gestión de Usuarios', icon: '👥' },
+  { path: '/admin/surveys', label: 'Crear Encuestas', icon: '📝' },
+  { path: '/admin/analytics', label: 'Analítica Global', icon: '📊' }, // ← Cambiar de DataAnalytics a analytics
+];
 
-  const surveyorLinks = [
-    { path: '/surveyor/list', label: 'Encuestas Disponibles', icon: '📋' },
-    { path: '/surveyor/viewer', label: 'Mis Datos', icon: '🔎' },
-  ];
+const surveyorLinks = [
+  { path: '/surveyor/viewer', label: 'Visor de Datos', icon: '📊' }, // ← Cambiar de DataViewer a viewer
+  { path: '/surveyor/list', label: 'Encuestas Disponibles', icon: '📋' },
+  { path: '/surveyor/my-data', label: 'Mis Datos', icon: '🔎' },
+];
+
 
   const linksToShow = isAdmin ? adminLinks : surveyorLinks;
 
