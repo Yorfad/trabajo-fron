@@ -1,27 +1,59 @@
 // /src/pages/Admin/UserManagement.jsx
 import React, { useEffect, useState } from "react";
-import { getUsers, createUser, updateUser, deleteUser } from "../../api/users";
-
+import { getUsers } from "../../api/users";
+import UserFormModal from "../../components/modals/UserFormModal";
+import DeleteUserModal from "../../components/modals/DeleteUserModal";
 function UserManagement() {
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [modalMode, setModalMode] = useState(null); // 'create', 'edit', 'delete'
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
+
+  const fetchUsers = async () => {
+    try {
+      const response = await getUsers();
+      setUsers(response.data);
+      setError(null);
+    } catch (err) {
+      console.error("Error fetching users:", err);
+      setError("No se pudieron cargar los usuarios.");
+    } finally {
+      if (isLoading) setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadUsers = async () => {
-      try {
-        const response = await getUsers();
-        setUsers(response.data);
-        setError(null);
-      } catch (err) {
-        console.error("Error al cargar usuarios:", err);
-        setError("Error al cargar usuarios. Estas autenticado como Admin?");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadUsers();
+    setIsLoading(true);
+    fetchUsers(); 
   }, []);
+
+  const handleOpenCreate = () => {
+    setSelectedUser(null);
+    setModalMode('create');
+  };
+
+  const handleOpenEdit = (user) => {
+    setSelectedUser(user);
+    setModalMode('edit');
+  };
+
+  const handleOpenDelete = (user) => {
+    setUserToDelete(user);
+  };
+
+  const handleCloseModals = () => {
+    setModalMode(null);
+    setUserToDelete(null);
+    setSelectedUser(null);
+  };
+
+  const handleSuccess = () => {
+    handleCloseModals();
+    fetchUsers();
+  };
 
   if (isLoading) {
     return <div className="p-4">Cargando gestion de usuarios...</div>;
@@ -31,11 +63,12 @@ function UserManagement() {
     return <div className="p-4 text-red-600 font-bold">{error}</div>;
   }
 
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Gestion de usuarios</h1> 
-        <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow">
+        <button onClick={handleOpenCreate} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow">
           Crear nuevo usuario 
         </button>
       </div>
@@ -88,10 +121,10 @@ function UserManagement() {
                     )}
                   </td>
                   <td className="py-3 px-4 whitespace-nowrap">
-                    <button className="text-indigo-600 hover:text-indigo-900 mr-3">
+                    <button onClick={() => handleOpenEdit(user)} className="text-indigo-600 hover:text-indigo-900 mr-3">
                       Editar
                     </button>
-                    <button className="text-red-600 hover:text-red-900">
+                    <button onClick={() => handleOpenDelete(user)} className="text-red-600 hover:text-red-900">
                       Eliminar
                     </button>
                   </td>
@@ -108,6 +141,22 @@ function UserManagement() {
           </tbody>
         </table>
       </div>
+
+       {(modalMode === 'create' || modalMode === 'edit') && (
+            <UserFormModal
+              user={selectedUser}
+              onClose={handleCloseModals}
+              onSuccess={handleSuccess}
+            />
+          )}
+          {userToDelete && (
+            <DeleteUserModal
+              user={userToDelete}
+              onClose={handleCloseModals}
+              onSuccess={handleSuccess}
+            />
+          )}     
+
     </div>
   );
 }
