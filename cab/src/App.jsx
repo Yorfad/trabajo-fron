@@ -11,7 +11,7 @@ import SurveyForm from './pages/admin/SurveyForm'; // <-- 1. IMPORTACIÓN AÑADI
 import SurveyList from './pages/Surveyor/SurveyList';
 import AppLayout from './components/layout/AppLayout';
 import DataViewer from './pages/Surveyor/DataViewer';
-import DataAnalytics from './pages/admin/DataAnalytics'; // ← AGREGAR ESTA LÍNEA
+
 
 const App = () => {
     return (
