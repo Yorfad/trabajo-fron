@@ -29,6 +29,7 @@ const App = () => {
                     {/* --- 2. RUTAS AÑADIDAS --- */}
                     <Route path="/admin/surveys/new" element={<SurveyForm />} />
                     <Route path="/admin/surveys/edit/:surveyId" element={<SurveyForm />} />
+                     <Route path="/admin/analytics" element={<DataAnalytics />} />
                 
                 </Route>
             </Route>
