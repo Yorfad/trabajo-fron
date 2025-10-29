@@ -223,10 +223,52 @@ export default function DataAnalytics() {
     }));
   };
 
+  const getCommunityData = () => {
+    const communityCount = {};
+    
+    data.forEach(item => {
+      // Aquí asumimos que las preguntas pueden tener un campo de comunidad
+      // Si no, podemos usar las comunidades cargadas
+      const comunidadNombre = item.comunidad || 'Sin comunidad';
+      communityCount[comunidadNombre] = (communityCount[comunidadNombre] || 0) + 1;
+    });
+
+    return Object.entries(communityCount).map(([name, value]) => ({
+      name,
+      preguntas: value
+    }));
+  };
+
+  const getAnswerData = () => {
+    const answerCount = {};
+    
+    data.forEach(item => {
+      // Procesar las respuestas si existen
+      if (item.respuestas && Array.isArray(item.respuestas)) {
+        item.respuestas.forEach(resp => {
+          const respuesta = resp.texto || resp;
+          answerCount[respuesta] = (answerCount[respuesta] || 0) + 1;
+        });
+      } else if (item.opciones && Array.isArray(item.opciones)) {
+        item.opciones.forEach(opc => {
+          const opcion = opc.texto || opc;
+          answerCount[opcion] = (answerCount[opcion] || 0) + 1;
+        });
+      }
+    });
+
+    return Object.entries(answerCount).map(([name, value]) => ({
+      name,
+      respuestas: value
+    }));
+  };
+
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
   const chartTypeData = getChartData();
   const chartCategoriaData = getCategoryData();
+  const chartCommunityData = getCommunityData();
+  const chartAnswerData = getAnswerData();
 
   if (error) {
     return (
@@ -378,44 +420,6 @@ export default function DataAnalytics() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total Preguntas</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalPreguntas}</p>
-                  </div>
-                  <div className="bg-blue-100 p-3 rounded-full">
-                    <FileText className="w-8 h-8 text-blue-600" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Comunidades</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalComunidades}</p>
-                  </div>
-                  <div className="bg-green-100 p-3 rounded-full">
-                    <Users className="w-8 h-8 text-green-600" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Categorías</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalCategorias}</p>
-                  </div>
-                  <div className="bg-purple-100 p-3 rounded-full">
-                    <TrendingUp className="w-8 h-8 text-purple-600" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">
@@ -457,6 +461,59 @@ export default function DataAnalytics() {
                         dataKey="value"
                       >
                         {chartCategoriaData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-gray-500">
+                    No hay datos para mostrar
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                  Preguntas por Comunidad
+                </h3>
+                {chartCommunityData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={chartCommunityData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="preguntas" fill="#10B981" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-gray-500">
+                    No hay datos para mostrar
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                  Distribución de Respuestas
+                </h3>
+                {chartAnswerData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={chartAnswerData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="respuestas"
+                      >
+                        {chartAnswerData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
