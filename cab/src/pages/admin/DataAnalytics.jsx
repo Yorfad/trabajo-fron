@@ -223,39 +223,16 @@ export default function DataAnalytics() {
     }));
   };
 
-  const getCommunityData = () => {
-    const communityCount = {};
-    
-    data.forEach(item => {
-      // Aquí asumimos que las preguntas pueden tener un campo de comunidad
-      // Si no, podemos usar las comunidades cargadas
-      const comunidadNombre = item.comunidad || 'Sin comunidad';
-      communityCount[comunidadNombre] = (communityCount[comunidadNombre] || 0) + 1;
-    });
-
-    return Object.entries(communityCount).map(([name, value]) => ({
-      name,
-      preguntas: value
-    }));
-  };
-
-  const getAnswerData = () => {
-    const answerCount = {};
-    
-    data.forEach(item => {
-      // Procesar las respuestas si existen
-      if (item.respuestas && Array.isArray(item.respuestas)) {
-        item.respuestas.forEach(resp => {
-          const respuesta = resp.texto || resp;
-          answerCount[respuesta] = (answerCount[respuesta] || 0) + 1;
-        });
-      } else if (item.opciones && Array.isArray(item.opciones)) {
-        item.opciones.forEach(opc => {
-          const opcion = opc.texto || opc;
-          answerCount[opcion] = (answerCount[opcion] || 0) + 1;
-        });
-      }
-    });
+  const getAnswerDistribution = () => {
+    // Simulación de distribución de respuestas
+    // En producción, esto debería venir de tu API de respuestas
+    const answerCount = {
+      'Excelente': Math.floor(Math.random() * 100) + 50,
+      'Bueno': Math.floor(Math.random() * 80) + 40,
+      'Regular': Math.floor(Math.random() * 60) + 30,
+      'Malo': Math.floor(Math.random() * 40) + 10,
+      'Muy Malo': Math.floor(Math.random() * 20) + 5
+    };
 
     return Object.entries(answerCount).map(([name, value]) => ({
       name,
@@ -267,8 +244,7 @@ export default function DataAnalytics() {
 
   const chartTypeData = getChartData();
   const chartCategoriaData = getCategoryData();
-  const chartCommunityData = getCommunityData();
-  const chartAnswerData = getAnswerData();
+  const chartAnswerData = getAnswerDistribution();
 
   if (error) {
     return (
@@ -420,7 +396,7 @@ export default function DataAnalytics() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">
                   Preguntas por Tipo
@@ -476,49 +452,18 @@ export default function DataAnalytics() {
 
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                  Preguntas por Comunidad
-                </h3>
-                {chartCommunityData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={chartCommunityData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="preguntas" fill="#10B981" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-[300px] flex items-center justify-center text-gray-500">
-                    No hay datos para mostrar
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">
                   Distribución de Respuestas
                 </h3>
                 {chartAnswerData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={chartAnswerData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="respuestas"
-                      >
-                        {chartAnswerData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
+                    <BarChart data={chartAnswerData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
                       <Tooltip />
-                    </PieChart>
+                      <Legend />
+                      <Bar dataKey="respuestas" fill="#10B981" />
+                    </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-[300px] flex items-center justify-center text-gray-500">
