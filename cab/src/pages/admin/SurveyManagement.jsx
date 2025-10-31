@@ -11,6 +11,7 @@ function SurveyManagement() {
   const [gruposFocales, setGruposFocales] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [processingId, setProcessingId] = useState(null); // Para mostrar loading en el botón específico
   const navigate = useNavigate();
 
   // Función para cargar SOLO las encuestas (la usaremos para refrescar)
@@ -55,13 +56,36 @@ function SurveyManagement() {
 
   // (Esta función está bien, ya llama a fetchSurveys)
   const handleToggleStatus = async (survey) => {
-    const nuevoEstado = !survey.activo;
+    // Manejar tanto survey.activo (boolean) como survey.estado (string)
+    const estaActiva = survey.activo === true || survey.estado === "Activa";
+    const nuevoEstado = !estaActiva;
+    
+    setProcessingId(survey.id_encuesta); // Marcar como procesando
+    
     try {
+      console.log('🔄 Cambiando estado de encuesta:', {
+        id: survey.id_encuesta,
+        estadoActual: estaActiva ? 'Activa' : 'Inactiva',
+        nuevoEstado: nuevoEstado ? 'Activa' : 'Inactiva'
+      });
+      
       await updateSurveyStatus(survey.id_encuesta, nuevoEstado);
-      fetchSurveys(); 
+      
+      console.log('✅ Estado actualizado correctamente');
+      await fetchSurveys(); 
     } catch (err) {
-      console.error("Error al cambiar estado:", err);
-      alert("No se pudo actualizar el estado de la encuesta.");
+      console.error("❌ Error al cambiar estado:", err);
+      console.error("Respuesta del servidor:", err.response?.data);
+      console.error("Status:", err.response?.status);
+      
+      const errorMessage = err.response?.data?.message 
+        || err.response?.data?.error
+        || err.message
+        || "Error desconocido";
+      
+      alert(`No se pudo actualizar el estado de la encuesta.\n\nError: ${errorMessage}`);
+    } finally {
+      setProcessingId(null); // Quitar el loading
     }
   };
   
@@ -98,6 +122,29 @@ function SurveyManagement() {
         </button>
       </div>
 
+      {/* Banner informativo sobre el flujo de trabajo */}
+      <div className="mb-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-blue-800">ℹ️ Cómo funciona el sistema de encuestas</h3>
+            <div className="mt-2 text-sm text-blue-700">
+              <ul className="list-disc list-inside space-y-1">
+                <li><strong>Nueva encuesta:</strong> Se crea inactiva por defecto.</li>
+                <li><strong>Activar:</strong> Para poner la encuesta en uso y que los encuestadores puedan usarla.</li>
+                <li><strong>Desactivar:</strong> Para retirar la encuesta del uso activo.</li>
+                <li><strong>No hay edición:</strong> Si necesitas modificar preguntas, crea una nueva encuesta con versión actualizada (ej: v1.0 → v2.0).</li>
+                <li><strong>Versiones:</strong> Solo una encuesta puede estar activa a la vez. Al activar una nueva, las demás se desactivan automáticamente.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white shadow-md rounded-lg overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-100">
@@ -124,7 +171,8 @@ function SurveyManagement() {
                   
                   <td className="py-3 px-4 whitespace-nowrap">{survey.version}</td>
                   <td className="py-3 px-4 whitespace-nowrap">
-                    {survey.activo ? (
+                    {/* Manejar tanto survey.activo (boolean) como survey.estado (string) */}
+                    {(survey.activo === true || survey.estado === "Activa") ? (
                       <span className="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">Activa</span>
                     ) : (
                       <span className="px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">Inactiva</span>
@@ -132,16 +180,22 @@ function SurveyManagement() {
                   </td>
                   <td className="py-3 px-4 whitespace-nowrap">
                     <button 
-                      onClick={() => navigate(`/admin/surveys/edit/${survey.id_encuesta}`)}
-                      className="text-indigo-600 hover:text-indigo-900 mr-3"
-                    >
-                      Editar
-                    </button>
-                    <button 
                       onClick={() => handleToggleStatus(survey)}
-                      className={survey.activo ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}
+                      disabled={processingId === survey.id_encuesta}
+                      className={`font-medium ${
+                        processingId === survey.id_encuesta 
+                          ? 'text-gray-400 cursor-wait' 
+                          : (survey.activo === true || survey.estado === "Activa")
+                            ? 'text-red-600 hover:text-red-900' 
+                            : 'text-green-600 hover:text-green-900'
+                      }`}
                     >
-                      {survey.activo ? 'Desactivar' : 'Activar'}
+                      {processingId === survey.id_encuesta 
+                        ? '⏳ Procesando...' 
+                        : (survey.activo === true || survey.estado === "Activa")
+                          ? '🔴 Desactivar' 
+                          : '✅ Activar'
+                      }
                     </button>
                   </td>
                 </tr>

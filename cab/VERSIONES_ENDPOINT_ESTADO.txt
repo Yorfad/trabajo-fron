@@ -1,0 +1,50 @@
+// VERSIONES ALTERNATIVAS PARA PROBAR SI "Activo"/"Inactivo" NO FUNCIONA
+
+// ========================================
+// VERSIÓN 1: Minúsculas
+// ========================================
+export const updateSurveyStatus = (id, estado) => {
+  const estadoString = estado ? "activo" : "inactivo";
+  return API.put(`/encuestas/${id}/estado`, { activo: estadoString });
+};
+
+// ========================================
+// VERSIÓN 2: Mayúsculas
+// ========================================
+export const updateSurveyStatus = (id, estado) => {
+  const estadoString = estado ? "ACTIVO" : "INACTIVO";
+  return API.put(`/encuestas/${id}/estado`, { activo: estadoString });
+};
+
+// ========================================
+// VERSIÓN 3: Sin body (toggle automático)
+// ========================================
+export const updateSurveyStatus = (id, estado) => {
+  return API.put(`/encuestas/${id}/estado`);
+};
+
+// ========================================
+// VERSIÓN 4: Campo diferente "estado" en vez de "activo"
+// ========================================
+export const updateSurveyStatus = (id, estado) => {
+  const estadoString = estado ? "Activo" : "Inactivo";
+  return API.put(`/encuestas/${id}/estado`, { estado: estadoString });
+};
+
+// ========================================
+// VERSIÓN 5: Número 1/0
+// ========================================
+export const updateSurveyStatus = (id, estado) => {
+  return API.put(`/encuestas/${id}/estado`, { activo: estado ? 1 : 0 });
+};
+
+// ========================================
+// VERSIÓN 6: Con diferentes nombres de campo
+// ========================================
+export const updateSurveyStatus = (id, estado) => {
+  const estadoString = estado ? "Activo" : "Inactivo";
+  return API.put(`/encuestas/${id}/estado`, { 
+    estado: estadoString,
+    activo: estadoString 
+  });
+};

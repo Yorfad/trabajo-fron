@@ -35,8 +35,19 @@ export const createSurvey = (surveyData) => {
  * @param {boolean} estado - true para activa, false para inactiva
  */
 export const updateSurveyStatus = (id, estado) => {
-  // La API espera un body, ej: { "activo": true }
-  return API.put(`/encuestas/${id}/estado`, { activo: estado });
+  // ✅ FORMATO CORRECTO según Swagger:
+  // Campo: "estado" (no "activo")
+  // Valor: "Activa" o "Inactiva" (con mayúscula inicial)
+  const estadoString = estado ? "Activa" : "Inactiva";
+  
+  console.log('📤 Enviando a API (formato Swagger):', {
+    endpoint: `/encuestas/${id}/estado`,
+    body: { estado: estadoString }
+  });
+  
+  return API.put(`/encuestas/${id}/estado`, { 
+    estado: estadoString  // ✅ "estado" no "activo"
+  });
 };
 
 // NOTA: Basado en la API que mostraste, no hay un "Editar" completo
