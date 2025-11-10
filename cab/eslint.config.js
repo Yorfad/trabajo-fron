@@ -14,7 +14,7 @@ export default defineConfig([
       reactRefresh.configs.vite,
     ],
     languageOptions: {
-      ecmaVersion: 2020,
+      ecmaVersion: 2024,
       globals: globals.browser,
       parserOptions: {
         ecmaVersion: 'latest',
@@ -23,7 +23,25 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Variables y código no usado
+      'no-unused-vars': ['warn', {
+        varsIgnorePattern: '^_',
+        argsIgnorePattern: '^_',
+        ignoreRestSiblings: true
+      }],
+
+      // Debugging - advertir sobre console.log en producción
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
+
+      // Mejores prácticas
+      'eqeqeq': ['error', 'always', { null: 'ignore' }],
+      'no-var': 'error',
+      'prefer-const': 'warn',
+      'prefer-arrow-callback': 'warn',
+      'no-duplicate-imports': 'error',
+
+      // React específico
+      'react-hooks/exhaustive-deps': 'warn',
     },
   },
 ])

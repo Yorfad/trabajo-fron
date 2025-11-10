@@ -1,12 +1,12 @@
 // src/api/surveys.js
-import API from "./axiosInstance"; // Importamos el mismo Axios con el token
+import API from './axiosInstance'; // Importamos el mismo Axios con el token
 
 /**
  * Obtiene la lista de todas las encuestas (versión simple).
  * Corresponde a: GET /encuestas
  */
 export const getSurveys = () => {
-  return API.get("/encuestas");
+  return API.get('/encuestas');
 };
 
 /**
@@ -25,7 +25,7 @@ export const getSurveyById = (id) => {
  * @param {object} surveyData - El JSON completo de la encuesta (como el que mostraste)
  */
 export const createSurvey = (surveyData) => {
-  return API.post("/encuestas", surveyData);
+  return API.post('/encuestas', surveyData);
 };
 
 /**

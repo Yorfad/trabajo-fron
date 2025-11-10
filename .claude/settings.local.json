@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(dir /s C:UserschrisOneDriveEscritoriomi-apitrabajo-fron)",
+      "Bash(find:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npm uninstall:*)",
+      "Bash(npx prettier:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run build:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

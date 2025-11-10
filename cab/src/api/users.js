@@ -1,15 +1,15 @@
-import API from "./axiosInstance.js";
+import API from './axiosInstance.js';
 
 /*CRUD de usuarios
 Obtiene la lista de todos los usuarios registrados*/
 
 //Corresponde a GET /api/usuarios
 export const getUsers = () => {
-    /*Nota: como esto es solo para Admin, la API requerirá un token
+  /*Nota: como esto es solo para Admin, la API requerirá un token
     Asegurar de que el axiosClient esté configurado
     para enviar el token (ver nota en aciosClient.js)*/
-    return API.get('/usuarios');
-}
+  return API.get('/usuarios');
+};
 
 /**
  * Crea un nuevo usuario.

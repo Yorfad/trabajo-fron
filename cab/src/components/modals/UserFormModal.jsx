@@ -3,16 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { createUser, updateUser } from '../../api/users';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
-
-// 1. (REGLA DE ROL) Función para normalizar roles
-// Esto asegura que el dropdown se seleccione correctamente al editar
-const normalizeRole = (roleStr) => {
-  if (!roleStr) return 'Encuestador'; // Valor por defecto
-  const lowerRole = roleStr.toLowerCase();
-  if (lowerRole === 'admin') return 'Admin';
-  if (lowerRole === 'encuestador') return 'Encuestador';
-  return 'Encuestador'; // Fallback
-};
+import { normalizeRoleForDisplay } from '../../utils/roleUtils';
 
 function UserFormModal({ user, onClose, onSuccess }) {
   // Estado del formulario
@@ -36,7 +27,7 @@ function UserFormModal({ user, onClose, onSuccess }) {
         nombre: user.nombre || '',
         correo: user.correo || '',
         password: '',
-        rol: normalizeRole(user.rol), // <--- CAMBIO AQUÍ
+        rol: normalizeRoleForDisplay(user.rol),
         activo: user.activo !== undefined ? user.activo : true,
       });
     } else {
@@ -84,18 +75,16 @@ function UserFormModal({ user, onClose, onSuccess }) {
         }
         await createUser(formData);
       }
-      
+
       // ¡ÉXITO!
       // Llamamos a onSuccess (que en UserManagement llamará a fetchUsers)
-      onSuccess(); 
-      
+      onSuccess();
     } catch (err) {
-      // (Tu lógica de errores está bien)
-      console.error('Error guardando usuario:', err); 
-      console.log('Respuesta del servidor:', err.response?.data); 
-      const serverMessage = err.response?.data?.message || 
-                            err.response?.data?.error || 
-                            JSON.stringify(err.response?.data); 
+      console.error('Error guardando usuario:', err);
+      const serverMessage =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        JSON.stringify(err.response?.data);
       setError(`Error del servidor: ${serverMessage || 'Revise los campos.'}`);
     } finally {
       setIsSubmitting(false);
@@ -104,13 +93,13 @@ function UserFormModal({ user, onClose, onSuccess }) {
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
         <form onSubmit={handleSubmit}>
-          <h2 className="text-2xl font-bold mb-4">
+          <h2 className="mb-4 text-2xl font-bold">
             {isEditMode ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
           </h2>
 
-          {error && <p className="text-red-500 mb-4">{error}</p>}
+          {error && <p className="mb-4 text-red-500">{error}</p>}
 
           {/* (Tu componente Input ya estaba bien) */}
           <Input
@@ -146,13 +135,15 @@ function UserFormModal({ user, onClose, onSuccess }) {
 
           {/* 4. (REGLA DE ROL) Select corregido */}
           <div className="mb-4">
-            <label htmlFor="rol" className="block text-sm font-medium text-gray-700">Rol</label>
+            <label htmlFor="rol" className="block text-sm font-medium text-gray-700">
+              Rol
+            </label>
             <select
               id="rol"
               name="rol"
               value={formData.rol}
               onChange={handleChange}
-              className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
             >
               {/* Los 'value' AHORA COINCIDEN con la base de datos */}
               <option value="Admin">Admin</option>
@@ -168,7 +159,7 @@ function UserFormModal({ user, onClose, onSuccess }) {
                 type="checkbox"
                 checked={formData.activo}
                 onChange={handleChange}
-                className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600"
               />
               <label htmlFor="activo" className="ml-2 block text-sm text-gray-900">
                 Usuario Activo
@@ -181,7 +172,7 @@ function UserFormModal({ user, onClose, onSuccess }) {
               Cancelar
             </Button>
             <Button type="submit" variant="primary" disabled={isSubmitting}>
-              {isSubmitting ? 'Guardando...' : (isEditMode ? 'Actualizar' : 'Crear')}
+              {isSubmitting ? 'Guardando...' : isEditMode ? 'Actualizar' : 'Crear'}
             </Button>
           </div>
         </form>

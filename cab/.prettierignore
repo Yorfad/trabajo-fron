@@ -1,0 +1,9 @@
+node_modules
+dist
+build
+.vscode
+.claude
+.qodo
+package-lock.json
+*.min.js
+*.min.css
