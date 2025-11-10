@@ -25,12 +25,18 @@ const App = () => {
                     <Route path="/admin/dashboard" element={<DashboardAdmin />} />
                     <Route path="/admin/users" element={<UserManagement />} />
                     <Route path="/admin/surveys" element={<SurveyManagement />} />
-                    
-                    {/* --- 2. RUTAS AÑADIDAS --- */}
+
+                    {/* Surveys */}
                     <Route path="/admin/surveys/new" element={<SurveyForm />} />
                     <Route path="/admin/surveys/edit/:surveyId" element={<SurveyForm />} />
+<<<<<<< Updated upstream
                      <Route path="/admin/analytics" element={<DataAnalytics />} />
                 
+=======
+
+                    {/* Analytics */}
+                    <Route path="/admin/analytics" element={<DataAnalytics />} /> {/* <- aquí está el fix */}
+>>>>>>> Stashed changes
                 </Route>
             </Route>
 
