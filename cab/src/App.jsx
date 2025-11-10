@@ -30,8 +30,14 @@ const App = () => {
                     <Route path="/admin/surveys/new" element={<SurveyForm />} />
                     <Route path="/admin/surveys/edit/:surveyId" element={<SurveyForm />} />
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
                      <Route path="/admin/analytics" element={<DataAnalytics />} />
                 
+=======
+
+                    {/* Analytics */}
+                    <Route path="/admin/analytics" element={<DataAnalytics />} /> {/* <- aquí está el fix */}
+>>>>>>> Stashed changes
 =======
 
                     {/* Analytics */}
