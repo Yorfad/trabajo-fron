@@ -1,0 +1,44 @@
+# Ignorar el repositorio de la API (es un repositorio separado)
+API-REST-CAB/
+
+# Ignorar base de datos scripts (si no quieres versionarlos)
+# db/
+
+# Archivos Python generados
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Scripts temporales de análisis
+analyze_excel.py
+generate_sql.py
+generate_sql_fixed.py
+verify_monitors.py
+
+# Archivos generados
+INSERTAR_DATOS_ENCUESTA.sql
+INSTRUCCIONES_SCRIPT_SQL.md
+
+# Datos sensibles (Excel con información personal)
+data/*.xlsx
+data/*.xls
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+nul
+
+# IDEs
+.vscode/
+.idea/
+.qodo/
+*.swp
+*.swo
+*~
+
+# Claude
+.claude/

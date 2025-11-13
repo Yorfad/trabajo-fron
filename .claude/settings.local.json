@@ -8,7 +8,14 @@
       "Bash(npm uninstall:*)",
       "Bash(npx prettier:*)",
       "Bash(npm run lint)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(python -m pip install:*)",
+      "Bash(python analyze_excel.py:*)",
+      "Bash(python generate_sql.py:*)",
+      "Bash(python verify_monitors.py:*)",
+      "Bash(python generate_sql_fixed.py:*)"
     ],
     "deny": [],
     "ask": []
