@@ -222,12 +222,12 @@ function SurveyForm() {
         id_categoria_pregunta: parseInt(p.id_categoria_pregunta),
         texto: p.texto,
         tipo: p.tipo,
-        orden: p.orden || pIndex + 1,
+        orden: pIndex + 1, // Usar siempre el índice para evitar duplicados
         opciones: p.opciones.map((o, oIndex) => ({
           etiqueta: o.etiqueta,
           valor: o.valor,
           puntos: parseInt(o.puntos),
-          orden: o.orden || oIndex + 1,
+          orden: oIndex + 1, // Usar siempre el índice para evitar duplicados
         })),
       })),
     };
