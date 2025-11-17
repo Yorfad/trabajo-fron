@@ -19,15 +19,11 @@ export default function DataViewer() {
   const [data, setData] = useState([]);
   const [allData, setAllData] = useState([]);
   const [comunidades, setComunidades] = useState([]);
-  const [categorias, setCategorias] = useState([]);
-  const [preguntas, setPreguntas] = useState([]);
   const [encuestas, setEncuestas] = useState([]);
   const [respuestas, setRespuestas] = useState([]);
   const [filters, setFilters] = useState({
     encuesta: '',
     comunidad: '',
-    categoria: '',
-    pregunta: '',
     fechaInicio: '',
     fechaFin: '',
   });
@@ -48,13 +44,6 @@ export default function DataViewer() {
   }, [data]);
 
   useEffect(() => {
-    if (allData.length > 0) {
-      const uniquePreguntas = [...new Set(allData.map((item) => item.pregunta).filter(Boolean))];
-      setPreguntas(uniquePreguntas);
-    }
-  }, [allData]);
-
-  useEffect(() => {
     applyFilters();
   }, [filters, allData]);
 
@@ -63,37 +52,38 @@ export default function DataViewer() {
     setError(null);
 
     try {
-      const [comunidadesRes, categoriasRes, encuestasRes] = await Promise.all([
+      const [comunidadesRes, encuestasRes, respuestasRes] = await Promise.all([
         API.get('/comunidades'),
-        API.get('/categorias-preguntas'),
         API.get('/encuestas'),
+        API.get('/respuestas'),
       ]);
 
       const comunidadesData = comunidadesRes.data;
       setComunidades(comunidadesData);
 
-      const categoriasData = categoriasRes.data;
-      let categoriasUnicas = [];
-      if (Array.isArray(categoriasData)) {
-        if (categoriasData.length > 0 && categoriasData[0]?.categoria) {
-          categoriasUnicas = [...new Set(categoriasData.map((item) => item.categoria))];
-        } else if (typeof categoriasData[0] === 'string') {
-          categoriasUnicas = [...new Set(categoriasData)];
-        } else if (categoriasData[0]?.nombre) {
-          categoriasUnicas = [...new Set(categoriasData.map((item) => item.nombre))];
-        }
-      }
-      setCategorias(categoriasUnicas);
-
       const encuestasData = encuestasRes.data;
       setEncuestas(encuestasData);
 
-      if (encuestasData.length > 0) {
-        await loadAllResponses(encuestasData);
-      } else {
-        console.warn('⚠️ No hay encuestas disponibles');
-        setLoading(false);
-      }
+      const respuestasData = respuestasRes.data;
+      setRespuestas(respuestasData);
+
+      // Enriquecer respuestas con información de encuesta y comunidad
+      const enrichedData = respuestasData.map((resp) => {
+        const encuesta = encuestasData.find((e) => e.id_encuesta === resp.id_encuesta);
+        const comunidad = comunidadesData.find((c) => c.id_comunidad === resp.id_comunidad);
+
+        return {
+          ...resp,
+          encuestaNombre: encuesta?.titulo || `Encuesta ${resp.id_encuesta}`,
+          comunidadNombre: comunidad?.comunidad || `Comunidad ${resp.id_comunidad}`,
+          departamento: comunidad?.departamento || '',
+          municipio: comunidad?.municipio || '',
+        };
+      });
+
+      setAllData(enrichedData);
+      setData(enrichedData);
+      setLoading(false);
     } catch (err) {
       console.error('❌ Error cargando datos:', err);
       let errorMessage = 'No se pudieron cargar los datos.';
@@ -107,165 +97,69 @@ export default function DataViewer() {
     }
   };
 
-  const loadAllResponses = async (encuestasList) => {
-    try {
-      const allResponses = [];
-
-      for (const encuesta of encuestasList) {
-        try {
-          // Primero obtener las preguntas de la encuesta
-          const preguntasResponse = await API.get(`/preguntas/filter`, {
-            params: { id_encuesta: encuesta.id },
-          });
-
-          const preguntas = preguntasResponse.data;
-
-          if (preguntas && preguntas.length > 0) {
-            // Para cada pregunta, intentar obtener respuestas
-            for (const pregunta of preguntas) {
-              try {
-                // Intenta obtener respuestas de esta pregunta
-                const respuestasResponse = await API.get(`/respuestas/filter`, {
-                  params: { id_pregunta: pregunta.id },
-                });
-
-                const respuestasData = respuestasResponse.data;
-
-                if (respuestasData && respuestasData.length > 0) {
-                  const respuestasConInfo = respuestasData.map((r) => ({
-                    ...r,
-                    encuestaId: encuesta.id,
-                    encuestaNombre: encuesta.titulo || encuesta.nombre || `Encuesta ${encuesta.id}`,
-                    pregunta: pregunta.texto,
-                    preguntaId: pregunta.id,
-                    categoria: pregunta.id_categoria,
-                    tipo: pregunta.tipo,
-                  }));
-
-                  allResponses.push(...respuestasConInfo);
-                }
-              } catch (err) {
-                // Si no hay endpoint de respuestas, crear datos mock
-                const mockResponses = generateMockResponses(pregunta, encuesta);
-                allResponses.push(...mockResponses);
-              }
-            }
-          }
-        } catch (err) {
-          console.error(`❌ Error cargando datos de encuesta ${encuesta.id}:`, err.message);
-        }
-      }
-
-      setAllData(allResponses);
-      setData(allResponses);
-      setLoading(false);
-    } catch (err) {
-      console.error('❌ Error general cargando respuestas:', err);
-      setLoading(false);
-    }
-  };
-
-  const generateMockResponses = (pregunta, encuesta) => {
-    const mockResponses = [];
-    const numResponses = Math.floor(Math.random() * 10) + 5;
-
-    const respuestasPorTipo = {
-      SiNo: ['Sí', 'No'],
-      OpcionUnica: ['Excelente', 'Bueno', 'Regular', 'Malo'],
-      OpcionMultiple: ['Opción A', 'Opción B', 'Opción C'],
-      Numerica: () => Math.floor(Math.random() * 100).toString(),
-      Texto: () => `Respuesta de texto ${Math.random().toString(36).substring(7)}`,
-    };
-
-    for (let i = 0; i < numResponses; i++) {
-      let respuestaValor;
-
-      if (pregunta.tipo === 'Numerica') {
-        respuestaValor = respuestasPorTipo.Numerica();
-      } else if (pregunta.tipo === 'Texto') {
-        respuestaValor = respuestasPorTipo.Texto();
-      } else {
-        const opciones = respuestasPorTipo[pregunta.tipo] || respuestasPorTipo.OpcionUnica;
-        respuestaValor = opciones[Math.floor(Math.random() * opciones.length)];
-      }
-
-      mockResponses.push({
-        id: `mock-${pregunta.id}-${i}`,
-        encuestaId: encuesta.id,
-        encuestaNombre: encuesta.titulo || encuesta.nombre || `Encuesta ${encuesta.id}`,
-        pregunta: pregunta.texto,
-        preguntaId: pregunta.id,
-        respuesta: respuestaValor,
-        categoria: pregunta.id_categoria,
-        tipo: pregunta.tipo,
-        fecha: new Date(2024, 9, Math.floor(Math.random() * 30) + 1).toISOString().split('T')[0],
-      });
-    }
-
-    return mockResponses;
-  };
 
   const applyFilters = () => {
     let filtered = [...allData];
 
     if (filters.encuesta) {
-      filtered = filtered.filter((d) => d.encuestaId === parseInt(filters.encuesta));
+      filtered = filtered.filter((d) => d.id_encuesta === parseInt(filters.encuesta));
     }
 
-    if (filters.categoria) {
-      filtered = filtered.filter((d) => d.categoria === parseInt(filters.categoria));
-    }
-
-    if (filters.pregunta) {
-      filtered = filtered.filter((d) => d.pregunta === filters.pregunta);
+    if (filters.comunidad) {
+      filtered = filtered.filter((d) => d.id_comunidad === parseInt(filters.comunidad));
     }
 
     if (filters.fechaInicio) {
-      filtered = filtered.filter((d) => d.fecha && d.fecha >= filters.fechaInicio);
+      filtered = filtered.filter((d) => {
+        const fecha = d.fecha_aplicada ? d.fecha_aplicada.split('T')[0] : null;
+        return fecha && fecha >= filters.fechaInicio;
+      });
     }
 
     if (filters.fechaFin) {
-      filtered = filtered.filter((d) => d.fecha && d.fecha <= filters.fechaFin);
+      filtered = filtered.filter((d) => {
+        const fecha = d.fecha_aplicada ? d.fecha_aplicada.split('T')[0] : null;
+        return fecha && fecha <= filters.fechaFin;
+      });
     }
 
     setData(filtered);
   };
 
   const calculateStats = () => {
-    const categoriasSet = new Set(data.map((d) => d.categoria).filter(Boolean));
-    const comunidadesSet = new Set(data.map((d) => d.comunidad).filter(Boolean));
+    const comunidadesSet = new Set(data.map((d) => d.id_comunidad).filter(Boolean));
+    const encuestasSet = new Set(data.map((d) => d.id_encuesta).filter(Boolean));
 
     setStats({
       totalRespuestas: data.length,
-      totalComunidades: comunidades.length,
-      totalCategorias: categoriasSet.size,
+      totalComunidades: comunidadesSet.size,
+      totalCategorias: encuestasSet.size, // Reusing for survey count
     });
   };
 
-  const getAnswerDistribution = () => {
-    const answerCount = {};
+  const getEncuestaDistribution = () => {
+    const encuestaCount = {};
 
     data.forEach((item) => {
-      const respuesta = item.respuesta || 'Sin respuesta';
-      answerCount[respuesta] = (answerCount[respuesta] || 0) + 1;
+      const nombre = item.encuestaNombre || 'Sin encuesta';
+      encuestaCount[nombre] = (encuestaCount[nombre] || 0) + 1;
     });
 
-    return Object.entries(answerCount).map(([name, value]) => ({
+    return Object.entries(encuestaCount).map(([name, value]) => ({
       name,
       respuestas: value,
     }));
   };
 
-  const getCategoryData = () => {
-    const categoryCount = {};
+  const getComunidadData = () => {
+    const comunidadCount = {};
 
     data.forEach((item) => {
-      const categoriaId = item.categoria;
-      const categoriaNombre = categorias[categoriaId - 1] || `Categoría ${categoriaId}`;
-      categoryCount[categoriaNombre] = (categoryCount[categoriaNombre] || 0) + 1;
+      const nombre = item.comunidadNombre || 'Sin comunidad';
+      comunidadCount[nombre] = (comunidadCount[nombre] || 0) + 1;
     });
 
-    return Object.entries(categoryCount).map(([name, value]) => ({
+    return Object.entries(comunidadCount).map(([name, value]) => ({
       name,
       value,
     }));
@@ -273,8 +167,8 @@ export default function DataViewer() {
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
-  const chartAnswerData = getAnswerDistribution();
-  const chartCategoriaData = getCategoryData();
+  const chartEncuestaData = getEncuestaDistribution();
+  const chartComunidadData = getComunidadData();
 
   if (error) {
     return (
@@ -330,40 +224,24 @@ export default function DataViewer() {
               >
                 <option value="">Todas</option>
                 {encuestas.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.titulo || e.nombre || `Encuesta ${e.id}`}
+                  <option key={e.id_encuesta} value={e.id_encuesta}>
+                    {e.titulo || e.nombre || `Encuesta ${e.id_encuesta}`}
                   </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Categoría</label>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Comunidad</label>
               <select
-                value={filters.categoria}
-                onChange={(e) => setFilters((prev) => ({ ...prev, categoria: e.target.value }))}
+                value={filters.comunidad}
+                onChange={(e) => setFilters((prev) => ({ ...prev, comunidad: e.target.value }))}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Todas</option>
-                {categorias.map((c, idx) => (
-                  <option key={idx + 1} value={idx + 1}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Pregunta</label>
-              <select
-                value={filters.pregunta}
-                onChange={(e) => setFilters((prev) => ({ ...prev, pregunta: e.target.value }))}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Todas</option>
-                {preguntas.map((p, idx) => (
-                  <option key={idx} value={p}>
-                    {p.length > 50 ? p.substring(0, 50) + '...' : p}
+                {comunidades.map((c) => (
+                  <option key={c.id_comunidad} value={c.id_comunidad}>
+                    {c.comunidad}
                   </option>
                 ))}
               </select>
@@ -428,7 +306,7 @@ export default function DataViewer() {
               <div className="rounded-lg bg-white p-6 shadow-md">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Categorías</p>
+                    <p className="text-sm font-medium text-gray-600">Encuestas</p>
                     <p className="mt-2 text-3xl font-bold text-gray-900">{stats.totalCategorias}</p>
                   </div>
                   <div className="rounded-full bg-purple-100 p-3">
@@ -441,11 +319,11 @@ export default function DataViewer() {
             <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
               <div className="rounded-lg bg-white p-6 shadow-md">
                 <h3 className="mb-4 text-lg font-semibold text-gray-800">
-                  Distribución de Respuestas
+                  Respuestas por Encuesta
                 </h3>
-                {chartAnswerData.length > 0 ? (
+                {chartEncuestaData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={chartAnswerData}>
+                    <BarChart data={chartEncuestaData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis />
@@ -463,13 +341,13 @@ export default function DataViewer() {
 
               <div className="rounded-lg bg-white p-6 shadow-md">
                 <h3 className="mb-4 text-lg font-semibold text-gray-800">
-                  Distribución por Categoría
+                  Distribución por Comunidad
                 </h3>
-                {chartCategoriaData.length > 0 ? (
+                {chartComunidadData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
-                        data={chartCategoriaData}
+                        data={chartComunidadData}
                         cx="50%"
                         cy="50%"
                         labelLine={false}
@@ -478,7 +356,7 @@ export default function DataViewer() {
                         fill="#8884d8"
                         dataKey="value"
                       >
-                        {chartCategoriaData.map((entry, index) => (
+                        {chartComunidadData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
@@ -501,19 +379,25 @@ export default function DataViewer() {
                     <thead className="border-b-2 border-gray-200 bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                          ID
+                          Boleta
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
                           Encuesta
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                          Pregunta
+                          Comunidad
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                          Respuesta
+                          Nombre Encuestada
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
-                          Categoría
+                          Edad
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                          Promedio
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                          Estado
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
                           Fecha
@@ -522,22 +406,41 @@ export default function DataViewer() {
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
                       {data.map((item, idx) => (
-                        <tr key={item.id || idx} className="hover:bg-gray-50">
-                          <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
-                            {item.id || idx + 1}
+                        <tr key={item.id_respuesta || idx} className="hover:bg-gray-50">
+                          <td className="whitespace-nowrap px-6 py-4 text-sm font-semibold text-gray-900">
+                            {item.boleta_num}
                           </td>
                           <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                            {item.encuestaNombre || `#${item.encuestaId}`}
+                            {item.encuestaNombre}
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">{item.pregunta}</td>
-                          <td className="px-6 py-4 text-sm text-gray-900">{item.respuesta}</td>
+                          <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
+                            {item.comunidadNombre}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900">{item.nombre_encuestada}</td>
+                          <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
+                            {item.edad_encuestada}
+                          </td>
+                          <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                            <span className="font-semibold">{item.promedio_0a10?.toFixed(2) || '-'}</span>
+                            <span className="text-xs text-gray-500"> / 10</span>
+                          </td>
                           <td className="whitespace-nowrap px-6 py-4">
-                            <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800">
-                              {categorias[item.categoria - 1] || `Categoría ${item.categoria}`}
+                            <span
+                              className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                                item.estado === 'Enviada'
+                                  ? 'bg-green-100 text-green-800'
+                                  : item.estado === 'Anulada'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {item.estado}
                             </span>
                           </td>
                           <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                            {item.fecha ? new Date(item.fecha).toLocaleDateString() : '-'}
+                            {item.fecha_aplicada
+                              ? new Date(item.fecha_aplicada).toLocaleDateString()
+                              : '-'}
                           </td>
                         </tr>
                       ))}

@@ -37,3 +37,22 @@ export const getDepartamentos = () => {
 export const getMunicipios = () => {
   return API.get('/municipios');
 };
+
+/**
+ * Obtiene datos de un catálogo dinámico
+ * @param {string} tabla - Nombre de la tabla
+ * @param {string} valor - Columna para el valor
+ * @param {string} etiqueta - Columna para la etiqueta
+ */
+export const getCatalogData = (tabla, valor, etiqueta) => {
+  return API.get('/catalogos/data', {
+    params: { tabla, valor, etiqueta }
+  });
+};
+
+/**
+ * Obtiene la lista de catálogos disponibles
+ */
+export const getAvailableCatalogs = () => {
+  return API.get('/catalogos/available');
+};

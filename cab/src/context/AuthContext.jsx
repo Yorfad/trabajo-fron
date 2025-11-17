@@ -11,6 +11,7 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState(null);
+  const [userName, setUserName] = useState(null); // ⬅️ NUEVO - Nombre del usuario
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,6 +23,7 @@ export const AuthProvider = ({ children }) => {
           const rawRole = decoded.role || decoded.rol || decoded.roleName || decoded?.user?.role;
           setIsAuthenticated(true);
           setUserRole(normalizeRoleForAuth(rawRole));
+          setUserName(decoded.nombre || decoded.name || null); // ⬅️ NUEVO
         } else {
           handleLogout();
         }
@@ -55,6 +57,7 @@ export const AuthProvider = ({ children }) => {
 
       setIsAuthenticated(true);
       setUserRole(role);
+      setUserName(decoded.nombre || decoded.name || null); // ⬅️ NUEVO
       return role; // 👈 Login.jsx usará este valor para navegar
     } catch (e) {
       console.error('Login error:', e.response?.status, e.response?.data || e.message);
@@ -69,12 +72,14 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('jwt_token');
     setIsAuthenticated(false);
     setUserRole(null);
+    setUserName(null); // ⬅️ NUEVO
     // Opcional: Redirigir al usuario al login aquí
   };
 
   const value = {
     isAuthenticated,
     userRole,
+    userName, // ⬅️ NUEVO
     loading,
     login: handleLogin,
     logout: handleLogout,

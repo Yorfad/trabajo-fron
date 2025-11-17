@@ -7,11 +7,12 @@ import Login from './pages/auth/Login';
 import DashboardAdmin from './pages/admin/DashboardAdmin';
 import UserManagement from './pages/admin/UserManagement';
 import SurveyManagement from './pages/admin/SurveyManagement';
-import SurveyForm from './pages/admin/SurveyForm'; // <-- 1. IMPORTACIÓN AÑADIDA
+import SurveyForm from './pages/admin/SurveyForm';
 import SurveyList from './pages/Surveyor/SurveyList';
+import SurveyFillForm from './pages/Surveyor/SurveyFillForm';
 import AppLayout from './components/layout/AppLayout';
 import DataViewer from './pages/Surveyor/DataViewer';
-import DataAnalytics from './pages/admin/DataAnalytics'; // ← AGREGAR ESTA LÍNEA
+import DataAnalytics from './pages/admin/DataAnalytics';
 
 const App = () => {
   return (
@@ -29,6 +30,7 @@ const App = () => {
           {/* Surveys */}
           <Route path="/admin/surveys/new" element={<SurveyForm />} />
           <Route path="/admin/surveys/edit/:surveyId" element={<SurveyForm />} />
+          <Route path="/admin/surveys/fill/:surveyId" element={<SurveyFillForm />} />
 
           {/* Analytics */}
           <Route path="/admin/analytics" element={<DataAnalytics />} />
@@ -39,6 +41,7 @@ const App = () => {
       <Route element={<ProtectedRoute allowedRoles={['surveyor', 'admin']} />}>
         <Route element={<AppLayout />}>
           <Route path="/surveyor/list" element={<SurveyList />} />
+          <Route path="/surveyor/fill/:surveyId" element={<SurveyFillForm />} />
           <Route path="/surveyor/viewer" element={<DataViewer />} />
         </Route>
       </Route>

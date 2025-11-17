@@ -15,6 +15,14 @@ const newQuestionInitialState = {
   tipo: 'OpcionUnica', // Tipo por defecto
   orden: 1, // (Podríamos manejar esto luego)
   opciones: [],
+  // Campos para tipo Catalogo
+  catalogo_tabla: '',
+  catalogo_valor: '',
+  catalogo_etiqueta: '',
+  // Campos para rangos de semáforo personalizados
+  rango_rojo_max: null,
+  rango_naranja_max: null,
+  rango_amarillo_max: null,
 };
 
 // Estado inicial para una opción nueva
@@ -24,6 +32,9 @@ const newOptionInitialState = {
   valor: '', // El valor que se guarda (ej: "casi_siempre")
   puntos: 0,
   orden: 1,
+  // Campos para preguntas condicionales
+  condicional: false,
+  condicional_pregunta_id: null,
 };
 
 // Estado inicial para una encuesta nueva
@@ -137,9 +148,10 @@ function SurveyForm() {
       preguntas: prev.preguntas.map((p) => {
         if (p.tempId !== questionTempId) return p;
 
-        // Si cambia el tipo, reiniciamos las opciones
+        // Si cambia el tipo, reiniciamos las opciones según corresponda
+        const tiposConOpciones = ['OpcionUnica', 'OpcionMultiple', 'SiNo'];
         const newOpciones =
-          name === 'tipo' && (value === 'OpcionUnica' || value === 'OpcionMultiple')
+          name === 'tipo' && tiposConOpciones.includes(value)
             ? p.opciones.length > 0
               ? p.opciones
               : [] // Mantiene opciones si ya existen
@@ -389,54 +401,98 @@ function SurveyForm() {
                     className="w-full rounded-md border border-gray-300 p-2 focus:border-indigo-500 focus:ring-indigo-500"
                   >
                     <option value="OpcionUnica">Opción Única</option>
-                    {/* (Puedes añadir más tipos si tu API los soporta) */}
-                    {/* <option value="OpcionMultiple">Opción Múltiple</option> */}
-                    {/* <option value="Numerica">Numérica</option> */}
-                    {/* <option value="Texto">Texto Abierto</option> */}
+                    <option value="OpcionMultiple">Opción Múltiple</option>
+                    <option value="Numerica">Numérica</option>
+                    <option value="SiNo">Sí/No</option>
+                    <option value="Texto">Texto Abierto</option>
+                    <option value="Fecha">Fecha</option>
+                    <option value="Catalogo">Catálogo (desde tabla)</option>
                   </select>
                 </div>
               </div>
 
               {/* --- Constructor de Opciones (Anidado) --- */}
-              {(pregunta.tipo === 'OpcionUnica' || pregunta.tipo === 'OpcionMultiple') && (
+              {(pregunta.tipo === 'OpcionUnica' || pregunta.tipo === 'OpcionMultiple' || pregunta.tipo === 'SiNo') && (
                 <div className="mt-4 border-t border-gray-200 pt-4">
                   <h4 className="text-md mb-2 font-semibold">Opciones de Respuesta</h4>
                   <div className="space-y-3">
                     {pregunta.opciones.map((opcion, oIndex) => (
                       <div
                         key={opcion.tempId}
-                        className="flex items-center space-x-2 rounded bg-gray-50 p-2"
+                        className="rounded bg-gray-50 p-3"
                       >
-                        <Input
-                          placeholder="Etiqueta (ej: Sí)"
-                          name="etiqueta"
-                          value={opcion.etiqueta}
-                          onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
-                          className="!mb-0" // Sobrescribe el 'mb-4' de tu Input.jsx
-                        />
-                        <Input
-                          placeholder="Valor (ej: si)"
-                          name="valor"
-                          value={opcion.valor}
-                          onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
-                          className="!mb-0"
-                        />
-                        <Input
-                          type="number"
-                          placeholder="Puntos"
-                          name="puntos"
-                          value={opcion.puntos}
-                          onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
-                          className="!mb-0 w-24"
-                        />
-                        <Button
-                          type="button"
-                          variant="danger"
-                          onClick={() => handleDeleteOption(pregunta.tempId, opcion.tempId)}
-                          className="h-10 w-10 !p-2"
-                        >
-                          X
-                        </Button>
+                        <div className="flex items-center space-x-2">
+                          <Input
+                            placeholder="Etiqueta (ej: Sí)"
+                            name="etiqueta"
+                            value={opcion.etiqueta}
+                            onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
+                            className="!mb-0"
+                          />
+                          <Input
+                            placeholder="Valor (ej: si)"
+                            name="valor"
+                            value={opcion.valor}
+                            onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
+                            className="!mb-0"
+                          />
+                          <Input
+                            type="number"
+                            placeholder="Puntos"
+                            name="puntos"
+                            value={opcion.puntos}
+                            onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
+                            className="!mb-0 w-24"
+                          />
+                          <Button
+                            type="button"
+                            variant="danger"
+                            onClick={() => handleDeleteOption(pregunta.tempId, opcion.tempId)}
+                            className="h-10 w-10 !p-2"
+                          >
+                            X
+                          </Button>
+                        </div>
+
+                        {/* Configuración condicional */}
+                        <div className="mt-2 flex items-center gap-3 border-t border-gray-200 pt-2">
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              name="condicional"
+                              checked={opcion.condicional || false}
+                              onChange={(e) => {
+                                const newValue = e.target.checked;
+                                handleOptionChange(pregunta.tempId, opcion.tempId, {
+                                  target: { name: 'condicional', value: newValue }
+                                });
+                              }}
+                              className="h-4 w-4"
+                            />
+                            <span className="font-medium">🔗 Pregunta condicional</span>
+                          </label>
+
+                          {opcion.condicional && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-600">Si se selecciona, mostrar pregunta:</span>
+                              <select
+                                name="condicional_pregunta_id"
+                                value={opcion.condicional_pregunta_id || ''}
+                                onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
+                                className="rounded border border-gray-300 px-2 py-1 text-sm"
+                              >
+                                <option value="">-- Seleccionar pregunta --</option>
+                                {survey.preguntas
+                                  .filter(p => p.tempId !== pregunta.tempId) // Excluir pregunta actual
+                                  .map(p => (
+                                    <option key={p.tempId} value={p.tempId}>
+                                      {p.texto || `Pregunta ${survey.preguntas.indexOf(p) + 1}`}
+                                    </option>
+                                  ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -450,6 +506,130 @@ function SurveyForm() {
                   </Button>
                 </div>
               )}
+
+              {/* --- Configuración de Catálogo --- */}
+              {pregunta.tipo === 'Catalogo' && (
+                <div className="mt-4 border-t border-gray-200 pt-4">
+                  <h4 className="text-md mb-2 font-semibold">Configuración de Catálogo</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        Tabla de origen
+                      </label>
+                      <select
+                        name="catalogo_tabla"
+                        value={pregunta.catalogo_tabla || ''}
+                        onChange={(e) => handleQuestionChange(pregunta.tempId, e)}
+                        className="w-full rounded-md border border-gray-300 p-2"
+                      >
+                        <option value="">-- Seleccionar tabla --</option>
+                        <option value="comunidades">Comunidades</option>
+                        <option value="departamentos">Departamentos</option>
+                        <option value="municipios">Municipios</option>
+                        <option value="categorias_pregunta">Categorías de Pregunta</option>
+                        <option value="grupos_focales">Grupos Focales</option>
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                          Columna valor (ID)
+                        </label>
+                        <Input
+                          placeholder="ej: id_comunidad"
+                          name="catalogo_valor"
+                          value={pregunta.catalogo_valor || ''}
+                          onChange={(e) => handleQuestionChange(pregunta.tempId, e)}
+                          className="!mb-0"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                          Columna etiqueta (texto)
+                        </label>
+                        <Input
+                          placeholder="ej: nombre"
+                          name="catalogo_etiqueta"
+                          value={pregunta.catalogo_etiqueta || ''}
+                          onChange={(e) => handleQuestionChange(pregunta.tempId, e)}
+                          className="!mb-0"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      📋 Las opciones se cargarán dinámicamente desde la tabla seleccionada
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* --- Configuración de Rangos de Semáforo --- */}
+              <div className="mt-4 border-t border-gray-200 pt-4">
+                <details className="cursor-pointer">
+                  <summary className="text-md font-semibold">
+                    ⚙️ Rangos de Semáforo Personalizados (Opcional)
+                  </summary>
+                  <div className="mt-3 space-y-3">
+                    <p className="text-sm text-gray-600">
+                      Defina rangos personalizados para el análisis de semáforo (0-10).
+                      Si no se especifica, se usarán los rangos globales por defecto.
+                    </p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-red-600">
+                          🔴 Rojo hasta:
+                        </label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="10"
+                          placeholder="5.0 (default)"
+                          name="rango_rojo_max"
+                          value={pregunta.rango_rojo_max || ''}
+                          onChange={(e) => handleQuestionChange(pregunta.tempId, e)}
+                          className="!mb-0"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-orange-600">
+                          🟠 Naranja hasta:
+                        </label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="10"
+                          placeholder="7.0 (default)"
+                          name="rango_naranja_max"
+                          value={pregunta.rango_naranja_max || ''}
+                          onChange={(e) => handleQuestionChange(pregunta.tempId, e)}
+                          className="!mb-0"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-yellow-600">
+                          🟡 Amarillo hasta:
+                        </label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="10"
+                          placeholder="8.0 (default)"
+                          name="rango_amarillo_max"
+                          value={pregunta.rango_amarillo_max || ''}
+                          onChange={(e) => handleQuestionChange(pregunta.tempId, e)}
+                          className="!mb-0"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      🟢 Verde: Valores superiores al Amarillo
+                    </p>
+                  </div>
+                </details>
+              </div>
             </div>
           ))}
         </div>
