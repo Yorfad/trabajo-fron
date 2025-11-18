@@ -5,6 +5,7 @@ import { TrafficLightBadge, getTrafficLightColor } from '../../components/ui/Tra
 import { getFilteredAnalytics } from '../../api/analytics';
 import { getComunidades } from '../../api/catalogos';
 import { getSurveys } from '../../api/surveys';
+import { generateFilteredAnalyticsPDF } from '../../utils/pdfGenerator';
 
 export default function FilteredAnalytics() {
   const navigate = useNavigate();
@@ -70,8 +71,9 @@ export default function FilteredAnalytics() {
   };
 
   const handleDownloadPDF = () => {
-    // TODO: Implementar descarga de PDF
-    alert('Funcionalidad de descarga de PDF próximamente');
+    if (analyticsData) {
+      generateFilteredAnalyticsPDF(analyticsData);
+    }
   };
 
   return (

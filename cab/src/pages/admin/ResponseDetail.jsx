@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Calendar, MapPin, FileText } from 'lucide-react';
+import { ArrowLeft, User, Calendar, MapPin, FileText, Download } from 'lucide-react';
 import { TrafficLightBadge } from '../../components/ui/TrafficLight';
 import { getResponseDetail } from '../../api/analytics';
+import { generateResponseDetailPDF } from '../../utils/pdfGenerator';
 
 export default function ResponseDetail() {
   const { id } = useParams();
@@ -28,6 +29,12 @@ export default function ResponseDetail() {
       setError(err.response?.data?.msg || 'Error al cargar datos');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    if (data) {
+      generateResponseDetailPDF(data);
     }
   };
 
@@ -62,14 +69,23 @@ export default function ResponseDetail() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="mx-auto max-w-5xl">
-        {/* Header con botón volver */}
-        <button
-          onClick={() => navigate(-1)}
-          className="mb-4 flex items-center gap-2 text-blue-600 hover:text-blue-700"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver
-        </button>
+        {/* Header con botones volver y descargar */}
+        <div className="mb-4 flex items-center justify-between">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-blue-600 hover:text-blue-700"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver
+          </button>
+          <button
+            onClick={handleDownloadPDF}
+            className="flex items-center gap-2 rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700"
+          >
+            <Download className="h-4 w-4" />
+            Descargar PDF
+          </button>
+        </div>
 
         {/* Información General */}
         <div className="mb-6 rounded-lg bg-white p-6 shadow">
