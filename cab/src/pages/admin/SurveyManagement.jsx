@@ -48,9 +48,10 @@ function SurveyManagement() {
     loadAllData();
   }, []); // Se ejecuta solo una vez al montar
 
-  // (Esta función está bien, ya llama a fetchSurveys)
+  // Función para alternar estado de encuesta
   const handleToggleStatus = async (survey) => {
-    const nuevoEstado = !survey.activo;
+    // El backend espera "Activa" o "Inactiva", no booleanos
+    const nuevoEstado = survey.estado === 'Activa' ? 'Inactiva' : 'Activa';
     try {
       await updateSurveyStatus(survey.id_encuesta, nuevoEstado);
       fetchSurveys();
@@ -130,7 +131,7 @@ function SurveyManagement() {
 
                   <td className="whitespace-nowrap px-4 py-3">{survey.version}</td>
                   <td className="whitespace-nowrap px-4 py-3">
-                    {survey.activo ? (
+                    {survey.estado === 'Activa' ? (
                       <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-800">
                         Activa
                       </span>
@@ -150,12 +151,12 @@ function SurveyManagement() {
                     <button
                       onClick={() => handleToggleStatus(survey)}
                       className={
-                        survey.activo
+                        survey.estado === 'Activa'
                           ? 'text-red-600 hover:text-red-900'
                           : 'text-green-600 hover:text-green-900'
                       }
                     >
-                      {survey.activo ? 'Desactivar' : 'Activar'}
+                      {survey.estado === 'Activa' ? 'Desactivar' : 'Activar'}
                     </button>
                   </td>
                 </tr>

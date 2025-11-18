@@ -32,11 +32,11 @@ export const createSurvey = (surveyData) => {
  * Actualiza el estado de una encuesta (Activa/Inactiva).
  * Corresponde a: PUT /encuestas/{id}/estado
  * @param {number|string} id - El ID de la encuesta
- * @param {boolean} estado - true para activa, false para inactiva
+ * @param {string} estado - "Activa" o "Inactiva"
  */
 export const updateSurveyStatus = (id, estado) => {
-  // La API espera un body, ej: { "activo": true }
-  return API.put(`/encuestas/${id}/estado`, { activo: estado });
+  // La API espera un body, ej: { "estado": "Activa" }
+  return API.put(`/encuestas/${id}/estado`, { estado });
 };
 
 // NOTA: Basado en la API que mostraste, no hay un "Editar" completo
