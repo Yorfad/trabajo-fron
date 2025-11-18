@@ -15,6 +15,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     { path: '/surveyor/list', label: 'Llenar Encuestas', icon: '✍️' },
     { path: '/surveyor/viewer', label: 'Ver Datos', icon: '🔎' },
     { path: '/admin/analytics', label: 'Analítica Global', icon: '📊' },
+    { path: '/admin/analytics/filtered', label: 'Análisis Filtrado', icon: '🔍' },
   ];
 
   const surveyorLinks = [

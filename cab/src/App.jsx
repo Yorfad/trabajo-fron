@@ -13,6 +13,8 @@ import SurveyFillForm from './pages/Surveyor/SurveyFillForm';
 import AppLayout from './components/layout/AppLayout';
 import DataViewer from './pages/Surveyor/DataViewer';
 import DataAnalytics from './pages/admin/DataAnalytics';
+import FilteredAnalytics from './pages/admin/FilteredAnalytics';
+import ResponseDetail from './pages/admin/ResponseDetail';
 
 const App = () => {
   return (
@@ -34,6 +36,8 @@ const App = () => {
 
           {/* Analytics */}
           <Route path="/admin/analytics" element={<DataAnalytics />} />
+          <Route path="/admin/analytics/filtered" element={<FilteredAnalytics />} />
+          <Route path="/admin/analytics/response/:id" element={<ResponseDetail />} />
         </Route>
       </Route>
 

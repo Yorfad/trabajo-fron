@@ -46,3 +46,23 @@ export const getAnalyticsByCategory = (categoria, communityId = null) => {
   const params = communityId ? `?communityId=${communityId}` : '';
   return API.get(`/analytics/category/${encodeURIComponent(categoria)}${params}`);
 };
+
+/**
+ * Obtiene análisis filtrado por comunidad, vuelta y encuesta
+ * GET /api/analytics/filtered?comunidad=1&vuelta=1&encuesta=5
+ * @param {number} comunidad - ID de la comunidad
+ * @param {number} vuelta - Número de vuelta
+ * @param {number} encuesta - ID de la encuesta
+ */
+export const getFilteredAnalytics = (comunidad, vuelta, encuesta) => {
+  return API.get(`/analytics/filtered?comunidad=${comunidad}&vuelta=${vuelta}&encuesta=${encuesta}`);
+};
+
+/**
+ * Obtiene detalle completo de una respuesta individual
+ * GET /api/analytics/response/:id
+ * @param {number} responseId - ID de la respuesta
+ */
+export const getResponseDetail = (responseId) => {
+  return API.get(`/analytics/response/${responseId}`);
+};
