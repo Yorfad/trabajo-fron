@@ -3,6 +3,7 @@ import 'jspdf-autotable';
 
 /**
  * Mapea colores de semáforo a colores RGB para PDF
+ * Rangos: Verde >= 66.67%, Amarillo >= 33.34%, Rojo < 33.34%
  */
 const getSemaforoColor = (color) => {
   switch (color) {
@@ -10,8 +11,6 @@ const getSemaforoColor = (color) => {
       return [34, 197, 94]; // green-500
     case 'Amarillo':
       return [234, 179, 8]; // yellow-500
-    case 'Naranja':
-      return [249, 115, 22]; // orange-500
     case 'Rojo':
       return [239, 68, 68]; // red-500
     default:

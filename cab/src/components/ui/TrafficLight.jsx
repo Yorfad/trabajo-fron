@@ -13,7 +13,7 @@ const TrafficLight = ({ color, promedio, label, size = 'md' }) => {
     xl: 'w-24 h-24'
   };
 
-  // Configuración de colores
+  // Configuración de colores (3 niveles: Verde >= 66.67%, Amarillo >= 33.34%, Rojo < 33.34%)
   const colors = {
     Verde: {
       active: 'bg-green-500',
@@ -29,13 +29,6 @@ const TrafficLight = ({ color, promedio, label, size = 'md' }) => {
       bg: 'bg-yellow-50',
       border: 'border-yellow-200'
     },
-    Naranja: {
-      active: 'bg-orange-500',
-      inactive: 'bg-gray-300',
-      text: 'text-orange-700',
-      bg: 'bg-orange-50',
-      border: 'border-orange-200'
-    },
     Rojo: {
       active: 'bg-red-500',
       inactive: 'bg-gray-300',
@@ -50,7 +43,7 @@ const TrafficLight = ({ color, promedio, label, size = 'md' }) => {
 
   return (
     <div className="flex items-center gap-4">
-      {/* Semáforo visual */}
+      {/* Semáforo visual (3 luces) */}
       <div className={`flex flex-col gap-2 p-3 bg-gray-800 rounded-lg border-2 ${currentColor.border}`}>
         {/* Luz Verde */}
         <div
@@ -62,12 +55,6 @@ const TrafficLight = ({ color, promedio, label, size = 'md' }) => {
         <div
           className={`${sizeClass} rounded-full ${
             color === 'Amarillo' ? currentColor.active + ' shadow-lg shadow-yellow-500/50' : 'bg-gray-600'
-          }`}
-        />
-        {/* Luz Naranja */}
-        <div
-          className={`${sizeClass} rounded-full ${
-            color === 'Naranja' ? currentColor.active + ' shadow-lg shadow-orange-500/50' : 'bg-gray-600'
           }`}
         />
         {/* Luz Roja */}
@@ -95,10 +82,9 @@ const TrafficLight = ({ color, promedio, label, size = 'md' }) => {
             </div>
           )}
           <div className={`mt-2 text-xs font-medium ${currentColor.text}`}>
-            {color === 'Verde' && '✓ Excelente conocimiento'}
-            {color === 'Amarillo' && '⚠ Buen conocimiento'}
-            {color === 'Naranja' && '⚠ Conocimiento regular'}
-            {color === 'Rojo' && '✗ Necesita mejoras urgentes'}
+            {color === 'Verde' && '✓ Excelente conocimiento (≥ 66.67%)'}
+            {color === 'Amarillo' && '⚠ Buen conocimiento (≥ 33.34%)'}
+            {color === 'Rojo' && '✗ Necesita mejoras urgentes (< 33.34%)'}
           </div>
         </div>
       )}
@@ -119,7 +105,6 @@ export const TrafficLightBadge = ({ color, size = 'md' }) => {
   const colors = {
     Verde: 'bg-green-500',
     Amarillo: 'bg-yellow-400',
-    Naranja: 'bg-orange-500',
     Rojo: 'bg-red-500'
   };
 
@@ -134,12 +119,12 @@ export const TrafficLightBadge = ({ color, size = 'md' }) => {
 /**
  * Función helper para determinar el color del semáforo basado en el promedio
  * @param {number} promedio - Promedio en escala 0-10
- * @returns {string} - Color del semáforo (Verde, Amarillo, Naranja, Rojo)
+ * @returns {string} - Color del semáforo (Verde, Amarillo, Rojo)
+ * Rangos: Verde >= 6.67 (66.67%), Amarillo >= 3.34 (33.34%), Rojo < 3.34
  */
 export const getTrafficLightColor = (promedio) => {
-  if (promedio >= 8) return 'Verde';
-  if (promedio >= 6) return 'Amarillo';
-  if (promedio >= 4) return 'Naranja';
+  if (promedio >= 6.67) return 'Verde';
+  if (promedio >= 3.34) return 'Amarillo';
   return 'Rojo';
 };
 
