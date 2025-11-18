@@ -230,11 +230,25 @@ function SurveyForm() {
           if (!valorUnico) {
             valorUnico = `opcion_${oIndex + 1}`;
           }
+
+          // Mapear tempId de pregunta condicional a su orden
+          let condicionalOrden = null;
+          if (o.condicional && o.condicional_pregunta_id) {
+            const preguntaIndex = survey.preguntas.findIndex(
+              (pg) => pg.tempId === o.condicional_pregunta_id
+            );
+            if (preguntaIndex !== -1) {
+              condicionalOrden = preguntaIndex + 1; // El orden empieza en 1
+            }
+          }
+
           return {
             etiqueta: o.etiqueta,
             valor: valorUnico,
             puntos: parseInt(o.puntos),
-            orden: oIndex + 1, // Usar siempre el índice para evitar duplicados
+            orden: oIndex + 1,
+            condicional: o.condicional ? 1 : 0,
+            condicional_pregunta_orden: condicionalOrden, // Enviamos el ORDEN en lugar del ID
           };
         }),
       })),
