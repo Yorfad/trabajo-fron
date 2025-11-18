@@ -1,41 +1,98 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Filter, Download, Eye, FileText, TrendingUp } from 'lucide-react';
-import { TrafficLightBadge, getTrafficLightColor } from '../../components/ui/TrafficLight';
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
+import {
+  BarChart3,
+  Users,
+  FileText,
+  TrendingUp,
+  RefreshCw,
+  Filter,
+  Download,
+  Eye,
+} from 'lucide-react';
+import { TrafficLightBadge } from '../../components/ui/TrafficLight';
 import { getFilteredAnalytics } from '../../api/analytics';
 import { getComunidades } from '../../api/catalogos';
 import { getSurveys } from '../../api/surveys';
 import { generateFilteredAnalyticsPDF } from '../../utils/pdfGenerator';
+import API from '../../api/axiosInstance';
 
-export default function FilteredAnalytics() {
+export default function UnifiedDashboard() {
   const navigate = useNavigate();
+
+  // Estados de estadísticas generales
+  const [loading, setLoading] = useState(true);
+  const [statsData, setStatsData] = useState({
+    totalUsuarios: 0,
+    encuestasActivas: 0,
+    totalRespuestas: 0,
+    comunidades: 0,
+  });
 
   // Estados de filtros
   const [comunidades, setComunidades] = useState([]);
   const [encuestas, setEncuestas] = useState([]);
   const [selectedComunidad, setSelectedComunidad] = useState('');
-  const [selectedVuelta, setSelectedVuelta] = useState('1');
+  const [selectedVuelta, setSelectedVuelta] = useState('');
   const [selectedEncuesta, setSelectedEncuesta] = useState('');
 
-  // Estados de datos
+  // Estados de datos filtrados
   const [analyticsData, setAnalyticsData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loadingFiltered, setLoadingFiltered] = useState(false);
   const [error, setError] = useState(null);
 
-  // Cargar catálogos
+  // Cargar estadísticas generales
   useEffect(() => {
+    loadGeneralStats();
     loadCatalogos();
   }, []);
+
+  const loadGeneralStats = async () => {
+    setLoading(true);
+    try {
+      const [usersRes, surveysRes, responsesRes, communitiesRes] = await Promise.all([
+        API.get('/usuarios'),
+        getSurveys(),
+        API.get('/respuestas'),
+        API.get('/comunidades'),
+      ]);
+
+      const activeSurveys = surveysRes.data.filter((s) => s.estado === 'Activa');
+
+      setStatsData({
+        totalUsuarios: usersRes.data.length,
+        encuestasActivas: activeSurveys.length,
+        totalRespuestas: responsesRes.data.length,
+        comunidades: communitiesRes.data.length,
+      });
+    } catch (err) {
+      console.error('Error cargando estadísticas:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadCatalogos = async () => {
     try {
       const [comunidadesRes, encuestasRes] = await Promise.all([
         getComunidades(),
-        getSurveys()
+        getSurveys(),
       ]);
       setComunidades(comunidadesRes.data);
-      // Filtrar solo encuestas activas
-      setEncuestas(encuestasRes.data.filter(e => e.estado === 'Activa'));
+      setEncuestas(encuestasRes.data.filter((e) => e.estado === 'Activa'));
     } catch (err) {
       console.error('Error cargando catálogos:', err);
       setError('Error al cargar catálogos');
@@ -45,10 +102,11 @@ export default function FilteredAnalytics() {
   const handleApplyFilters = async () => {
     if (!selectedComunidad || !selectedVuelta || !selectedEncuesta) {
       setError('Debe seleccionar comunidad, vuelta y encuesta');
+      setAnalyticsData(null);
       return;
     }
 
-    setLoading(true);
+    setLoadingFiltered(true);
     setError(null);
 
     try {
@@ -61,9 +119,18 @@ export default function FilteredAnalytics() {
     } catch (err) {
       console.error('Error al obtener análisis:', err);
       setError(err.response?.data?.msg || 'Error al cargar datos');
+      setAnalyticsData(null);
     } finally {
-      setLoading(false);
+      setLoadingFiltered(false);
     }
+  };
+
+  const handleClearFilters = () => {
+    setSelectedComunidad('');
+    setSelectedVuelta('');
+    setSelectedEncuesta('');
+    setAnalyticsData(null);
+    setError(null);
   };
 
   const handleViewResponse = (id) => {
@@ -76,25 +143,110 @@ export default function FilteredAnalytics() {
     }
   };
 
+  // Preparar datos para gráficos
+  const getEncuestaDistribution = () => {
+    if (!analyticsData?.respuestas) return [];
+
+    const count = {};
+    analyticsData.respuestas.forEach((resp) => {
+      const nombre = analyticsData.filtros.encuesta;
+      count[nombre] = (count[nombre] || 0) + 1;
+    });
+
+    return Object.entries(count).map(([name, value]) => ({
+      name,
+      respuestas: value,
+    }));
+  };
+
+  const getComunidadData = () => {
+    if (!analyticsData?.respuestas) return [];
+
+    const count = {};
+    analyticsData.respuestas.forEach(() => {
+      const nombre = analyticsData.filtros.comunidad;
+      count[nombre] = (count[nombre] || 0) + 1;
+    });
+
+    return Object.entries(count).map(([name, value]) => ({
+      name,
+      value,
+    }));
+  };
+
+  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+
+  const stats = [
+    {
+      label: 'Total Usuarios',
+      value: loading ? '...' : statsData.totalUsuarios,
+      icon: Users,
+      color: 'bg-blue-100 text-blue-600',
+    },
+    {
+      label: 'Encuestas Activas',
+      value: loading ? '...' : statsData.encuestasActivas,
+      icon: FileText,
+      color: 'bg-green-100 text-green-600',
+    },
+    {
+      label: 'Respuestas',
+      value: loading ? '...' : statsData.totalRespuestas,
+      icon: TrendingUp,
+      color: 'bg-purple-100 text-purple-600',
+    },
+    {
+      label: 'Comunidades',
+      value: loading ? '...' : statsData.comunidades,
+      icon: BarChart3,
+      color: 'bg-orange-100 text-orange-600',
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Análisis Filtrado</h1>
-          <p className="mt-2 text-gray-600">
-            Filtra por comunidad, vuelta y encuesta para ver resultados detallados
-          </p>
+        <div className="mb-8 flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-gray-800">Dashboard CAB</h1>
+          <button
+            onClick={loadGeneralStats}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </button>
+        </div>
+
+        {/* Estadísticas Generales */}
+        <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {stats.map((stat, index) => {
+            const Icon = stat.icon;
+            return (
+              <div key={index} className="rounded-lg bg-white p-6 shadow-md">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">{stat.label}</p>
+                    <p className="mt-2 text-3xl font-bold text-gray-900">{stat.value}</p>
+                  </div>
+                  <div className={`rounded-full p-3 ${stat.color}`}>
+                    <Icon className="h-8 w-8" />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* Filtros */}
         <div className="mb-6 rounded-lg bg-white p-6 shadow">
           <div className="mb-4 flex items-center gap-2">
             <Filter className="h-5 w-5 text-blue-600" />
-            <h2 className="text-lg font-semibold">Filtros</h2>
+            <h2 className="text-lg font-semibold">Análisis Filtrado</h2>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
             {/* Comunidad */}
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -124,6 +276,7 @@ export default function FilteredAnalytics() {
                 onChange={(e) => setSelectedVuelta(e.target.value)}
                 className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
               >
+                <option value="">-- Seleccionar --</option>
                 <option value="1">Vuelta 1</option>
                 <option value="2">Vuelta 2</option>
                 <option value="3">Vuelta 3</option>
@@ -155,10 +308,20 @@ export default function FilteredAnalytics() {
             <div className="flex items-end">
               <button
                 onClick={handleApplyFilters}
-                disabled={loading}
+                disabled={loadingFiltered}
                 className="w-full rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:bg-gray-400"
               >
-                {loading ? 'Cargando...' : 'Aplicar Filtros'}
+                {loadingFiltered ? 'Cargando...' : 'Aplicar'}
+              </button>
+            </div>
+
+            {/* Botón Limpiar */}
+            <div className="flex items-end">
+              <button
+                onClick={handleClearFilters}
+                className="w-full rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700"
+              >
+                Limpiar
               </button>
             </div>
           </div>
@@ -166,25 +329,22 @@ export default function FilteredAnalytics() {
 
         {/* Error */}
         {error && (
-          <div className="mb-6 rounded-lg bg-red-50 p-4 text-red-700">
-            {error}
-          </div>
+          <div className="mb-6 rounded-lg bg-red-50 p-4 text-red-700">{error}</div>
         )}
 
-        {/* Resultados */}
+        {/* Resultados Filtrados */}
         {analyticsData && (
           <>
-            {/* Información de filtros aplicados */}
+            {/* Info de filtros + botón PDF */}
             <div className="mb-6 rounded-lg bg-blue-50 p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-semibold text-blue-900">
-                    Filtros aplicados:
+                    Resultados para:
                   </h3>
                   <p className="text-sm text-blue-700">
-                    Comunidad: {analyticsData.filtros.comunidad} | Vuelta:{' '}
-                    {analyticsData.filtros.vuelta} | Encuesta:{' '}
-                    {analyticsData.filtros.encuesta}
+                    {analyticsData.filtros.comunidad} | Vuelta{' '}
+                    {analyticsData.filtros.vuelta} | {analyticsData.filtros.encuesta}
                   </p>
                 </div>
                 <button
@@ -192,8 +352,57 @@ export default function FilteredAnalytics() {
                   className="flex items-center gap-2 rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700"
                 >
                   <Download className="h-4 w-4" />
-                  Descargar PDF
+                  PDF
                 </button>
+              </div>
+            </div>
+
+            {/* Gráficos de Distribución */}
+            <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+              {/* Gráfico de Barras - Distribución por Encuesta */}
+              <div className="rounded-lg bg-white p-6 shadow">
+                <h2 className="mb-4 text-lg font-bold text-gray-900">
+                  Respuestas por Encuesta
+                </h2>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={getEncuestaDistribution()}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="respuestas" fill="#3B82F6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Gráfico de Pastel - Distribución por Comunidad */}
+              <div className="rounded-lg bg-white p-6 shadow">
+                <h2 className="mb-4 text-lg font-bold text-gray-900">
+                  Respuestas por Comunidad
+                </h2>
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={getComunidadData()}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label
+                    >
+                      {getComunidadData().map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={COLORS[index % COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
@@ -282,7 +491,7 @@ export default function FilteredAnalytics() {
               </div>
             </div>
 
-            {/* Lista de Respuestas */}
+            {/* Tabla de Respuestas Individuales */}
             <div className="rounded-lg bg-white p-6 shadow">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">

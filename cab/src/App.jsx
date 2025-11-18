@@ -4,7 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 // Importa tus vistas
 import Login from './pages/auth/Login';
-import DashboardAdmin from './pages/admin/DashboardAdmin';
+import UnifiedDashboard from './pages/admin/UnifiedDashboard';
 import UserManagement from './pages/admin/UserManagement';
 import SurveyManagement from './pages/admin/SurveyManagement';
 import SurveyForm from './pages/admin/SurveyForm';
@@ -12,8 +12,6 @@ import SurveyList from './pages/Surveyor/SurveyList';
 import SurveyFillForm from './pages/Surveyor/SurveyFillForm';
 import AppLayout from './components/layout/AppLayout';
 import DataViewer from './pages/Surveyor/DataViewer';
-import DataAnalytics from './pages/admin/DataAnalytics';
-import FilteredAnalytics from './pages/admin/FilteredAnalytics';
 import ResponseDetail from './pages/admin/ResponseDetail';
 
 const App = () => {
@@ -25,7 +23,7 @@ const App = () => {
       {/* RUTAS PROTEGIDAS PARA ADMINISTRADOR */}
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
         <Route element={<AppLayout />}>
-          <Route path="/admin/dashboard" element={<DashboardAdmin />} />
+          <Route path="/admin/dashboard" element={<UnifiedDashboard />} />
           <Route path="/admin/users" element={<UserManagement />} />
           <Route path="/admin/surveys" element={<SurveyManagement />} />
 
@@ -34,9 +32,7 @@ const App = () => {
           <Route path="/admin/surveys/edit/:surveyId" element={<SurveyForm />} />
           <Route path="/admin/surveys/fill/:surveyId" element={<SurveyFillForm />} />
 
-          {/* Analytics */}
-          <Route path="/admin/analytics" element={<DataAnalytics />} />
-          <Route path="/admin/analytics/filtered" element={<FilteredAnalytics />} />
+          {/* Analytics - Solo detalle de respuesta */}
           <Route path="/admin/analytics/response/:id" element={<ResponseDetail />} />
         </Route>
       </Route>

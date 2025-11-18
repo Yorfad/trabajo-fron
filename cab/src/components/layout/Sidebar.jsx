@@ -13,9 +13,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     { path: '/admin/users', label: 'Gestión de Usuarios', icon: '👥' },
     { path: '/admin/surveys', label: 'Crear Encuestas', icon: '📝' },
     { path: '/surveyor/list', label: 'Llenar Encuestas', icon: '✍️' },
-    { path: '/surveyor/viewer', label: 'Ver Datos', icon: '🔎' },
-    { path: '/admin/analytics', label: 'Analítica Global', icon: '📊' },
-    { path: '/admin/analytics/filtered', label: 'Análisis Filtrado', icon: '🔍' },
   ];
 
   const surveyorLinks = [
