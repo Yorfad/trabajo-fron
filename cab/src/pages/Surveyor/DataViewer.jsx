@@ -406,7 +406,7 @@ export default function DataViewer() {
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
                       {data.map((item, idx) => (
-                        <tr key={item.id_respuesta || idx} className="hover:bg-gray-50">
+                        <tr key={item.id || `${item.id_respuesta}-${item.preguntaId}-${idx}` || idx} className="hover:bg-gray-50">
                           <td className="whitespace-nowrap px-6 py-4 text-sm font-semibold text-gray-900">
                             {item.boleta_num}
                           </td>

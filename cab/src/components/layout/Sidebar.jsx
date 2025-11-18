@@ -12,6 +12,8 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     { path: '/admin/dashboard', label: 'Dashboard', icon: '🏠' },
     { path: '/admin/users', label: 'Gestión de Usuarios', icon: '👥' },
     { path: '/admin/surveys', label: 'Crear Encuestas', icon: '📝' },
+    { path: '/surveyor/list', label: 'Llenar Encuestas', icon: '✍️' },
+    { path: '/surveyor/viewer', label: 'Ver Datos', icon: '🔎' },
     { path: '/admin/analytics', label: 'Analítica Global', icon: '📊' },
   ];
 

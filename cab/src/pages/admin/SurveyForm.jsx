@@ -223,12 +223,20 @@ function SurveyForm() {
         texto: p.texto,
         tipo: p.tipo,
         orden: pIndex + 1, // Usar siempre el índice para evitar duplicados
-        opciones: p.opciones.map((o, oIndex) => ({
-          etiqueta: o.etiqueta,
-          valor: o.valor,
-          puntos: parseInt(o.puntos),
-          orden: oIndex + 1, // Usar siempre el índice para evitar duplicados
-        })),
+        opciones: p.opciones.map((o, oIndex) => {
+          // Generar valor único si está vacío
+          let valorUnico = o.valor || o.etiqueta.toLowerCase().replace(/\s+/g, '_').replace(/[^\w]/g, '');
+          // Asegurar que sea único agregando índice si es necesario
+          if (!valorUnico) {
+            valorUnico = `opcion_${oIndex + 1}`;
+          }
+          return {
+            etiqueta: o.etiqueta,
+            valor: valorUnico,
+            puntos: parseInt(o.puntos),
+            orden: oIndex + 1, // Usar siempre el índice para evitar duplicados
+          };
+        }),
       })),
     };
 
