@@ -749,7 +749,7 @@ function SurveyForm() {
                 </div>
               )}
 
-              {/* --- Opciones SiNo (No editables) --- */}
+              {/* --- Opciones SiNo (Etiquetas fijas, valores y puntos editables) --- */}
               {pregunta.tipo === 'SiNo' && (
                 <div className="mt-4 border-t border-gray-200 pt-4">
                   <div className="flex items-center justify-between mb-2">
@@ -768,34 +768,53 @@ function SurveyForm() {
                           <div className="flex-1">
                             <input
                               value={opcion.etiqueta}
-                              className="w-full rounded-md border border-green-300 bg-white p-2 text-sm font-semibold text-green-800"
+                              className="w-full rounded-md border border-green-300 bg-gray-100 p-2 text-sm font-semibold text-green-800 cursor-not-allowed"
                               readOnly
                               disabled
+                              title="La etiqueta no se puede modificar"
                             />
+                            <p className="mt-1 text-xs text-green-700">
+                              🔒 Etiqueta fija
+                            </p>
                           </div>
-                          <Input
-                            value={opcion.valor}
-                            className="!mb-0 w-32"
-                            readOnly
-                            disabled
-                          />
-                          <Input
-                            type="number"
-                            value={opcion.puntos}
-                            className="!mb-0 w-24"
-                            readOnly
-                            disabled
-                          />
+                          <div>
+                            <Input
+                              placeholder="Valor"
+                              name="valor"
+                              value={opcion.valor}
+                              onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
+                              className="!mb-0 w-32"
+                              maxLength={50}
+                              title="Puedes modificar el valor según tu necesidad"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                              ✏️ Editable
+                            </p>
+                          </div>
+                          <div>
+                            <Input
+                              type="number"
+                              placeholder="Puntos"
+                              name="puntos"
+                              value={opcion.puntos}
+                              onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
+                              className="!mb-0 w-24"
+                              title="Ajusta los puntos según el contexto de la pregunta"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                              ✏️ Editable
+                            </p>
+                          </div>
                         </div>
-                        <p className="mt-2 text-xs text-green-700">
-                          🔒 Esta opción es automática y no se puede modificar ni eliminar
-                        </p>
                       </div>
                     ))}
                   </div>
                   <div className="mt-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
-                    <strong>ℹ️ Nota:</strong> Las preguntas de tipo "Sí/No" tienen opciones predefinidas que no pueden modificarse.
-                    Si necesitas opciones personalizadas, cambia el tipo de pregunta a "Opción Única".
+                    <strong>💡 Tip:</strong> Las etiquetas "Sí" y "No" son fijas, pero puedes ajustar los <strong>valores</strong> y <strong>puntos</strong> según el contexto de tu pregunta.
+                    <br />
+                    <span className="text-xs mt-1 block">
+                      Ejemplo: Para "¿Tiene enfermedades?" puedes invertir los puntos: Sí=0, No=10
+                    </span>
                   </div>
                 </div>
               )}
