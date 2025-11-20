@@ -52,3 +52,14 @@ export const getResponsesBySurvey = (surveyId) => {
 export const cancelResponse = (id, motivo) => {
   return API.put(`/respuestas/${id}/anular`, { motivo });
 };
+
+/**
+ * Cuenta las respuestas registradas para una comunidad y encuesta específica
+ * GET /api/respuestas/count/:id_comunidad/:id_encuesta
+ * @param {number} id_comunidad - ID de la comunidad
+ * @param {number} id_encuesta - ID de la encuesta
+ * @returns {Promise} - { respuestas_count, next_vuelta }
+ */
+export const getResponsesCount = (id_comunidad, id_encuesta) => {
+  return API.get(`/respuestas/count/${id_comunidad}/${id_encuesta}`);
+};

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getSurveyById, createSurvey } from '../../api/surveys';
-import { getGruposFocales, getCategoriasPreguntas } from '../../api/catalogos';
+import { getGruposFocales, getCategoriasPreguntas, createCategoriaPregunta } from '../../api/catalogos';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input'; // Usaremos tu Input
 
@@ -22,7 +22,6 @@ const newQuestionInitialState = {
   // Campos para rangos de semáforo personalizados
   rango_rojo_max: null,
   rango_naranja_max: null,
-  rango_amarillo_max: null,
 };
 
 // Estado inicial para una opción nueva
@@ -30,11 +29,13 @@ const newOptionInitialState = {
   tempId: Date.now(),
   etiqueta: '', // El texto que ve el usuario (ej: "Casi siempre")
   valor: '', // El valor que se guarda (ej: "casi_siempre")
-  puntos: 0,
+  puntos: 1, // Puntaje por defecto
   orden: 1,
   // Campos para preguntas condicionales
   condicional: false,
   condicional_pregunta_id: null,
+  // Campo para opciones excluyentes (bloquean otras respuestas)
+  excluyente: false,
 };
 
 // Estado inicial para una encuesta nueva
@@ -47,11 +48,17 @@ const newSurveyInitialState = {
 };
 
 function SurveyForm() {
+  console.log('🚀 SurveyForm component loaded - Version 2.0');
+
   const [survey, setSurvey] = useState(newSurveyInitialState);
   const [catalogs, setCatalogs] = useState({ grupos: [], categorias: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
+  // Estado para el modal de crear categoría
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategory, setNewCategory] = useState({ nombre: '', descripcion: '' });
+  const [creatingCategory, setCreatingCategory] = useState(false);
 
   const { surveyId } = useParams();
   const navigate = useNavigate();
@@ -87,6 +94,10 @@ function SurveyForm() {
               opciones: p.opciones.map((o) => ({
                 ...o,
                 tempId: o.id_opcion || Date.now(),
+                // Asegurar valores por defecto para campos que pueden no existir
+                condicional: o.condicional || false,
+                excluyente: o.excluyente || false,
+                puntos: o.puntos !== undefined ? o.puntos : 1,
               })),
             })),
           };
@@ -193,26 +204,80 @@ function SurveyForm() {
 
   // Maneja cambios en un campo de una opción (ej: etiqueta, valor, puntos)
   const handleOptionChange = (questionTempId, optionTempId, e) => {
-    const { name, value } = e.target;
-    setSurvey((prev) => ({
-      ...prev,
-      preguntas: prev.preguntas.map((p) => {
-        if (p.tempId !== questionTempId) return p;
-        return {
-          ...p,
-          opciones: p.opciones.map((o) => {
-            if (o.tempId !== optionTempId) return o;
-            return { ...o, [name]: value };
-          }),
-        };
-      }),
-    }));
+    const { name, value, type, checked } = e.target;
+    // Para checkboxes, usar 'checked', para otros usar 'value'
+    const fieldValue = type === 'checkbox' ? checked : value;
+
+    console.log('🔄 handleOptionChange llamado:', {
+      questionTempId,
+      optionTempId,
+      name,
+      type,
+      value,
+      checked,
+      fieldValue
+    });
+
+    setSurvey((prev) => {
+      const updatedSurvey = {
+        ...prev,
+        preguntas: prev.preguntas.map((p) => {
+          if (p.tempId !== questionTempId) return p;
+          return {
+            ...p,
+            opciones: p.opciones.map((o) => {
+              if (o.tempId !== optionTempId) return o;
+              // Si el campo es 'etiqueta', auto-llenar el 'valor' también
+              if (name === 'etiqueta' && typeof fieldValue === 'string') {
+                // Truncar el valor a 50 caracteres (límite de la BD)
+                const valorLimitado = fieldValue.substring(0, 50);
+                console.log('✏️ Actualizando etiqueta y valor:', { etiqueta: fieldValue, valor: valorLimitado });
+                return { ...o, etiqueta: fieldValue, valor: valorLimitado };
+              }
+              console.log(`✏️ Actualizando ${name}:`, fieldValue);
+              return { ...o, [name]: fieldValue };
+            }),
+          };
+        }),
+      };
+      console.log('✅ Estado actualizado');
+      return updatedSurvey;
+    });
+  };
+
+  // --- Funciones para Crear Categoría ---
+  const handleCreateCategory = async () => {
+    if (!newCategory.nombre || newCategory.nombre.trim() === '') {
+      alert('El nombre de la categoría es requerido');
+      return;
+    }
+
+    setCreatingCategory(true);
+    try {
+      const response = await createCategoriaPregunta(newCategory);
+      // Añadir la nueva categoría al catálogo
+      setCatalogs(prev => ({
+        ...prev,
+        categorias: [...prev.categorias, response.data]
+      }));
+      // Limpiar el formulario y cerrar el modal
+      setNewCategory({ nombre: '', descripcion: '' });
+      setShowCategoryModal(false);
+      alert('Categoría creada exitosamente');
+    } catch (err) {
+      console.error('Error al crear categoría:', err);
+      alert(`Error al crear categoría: ${err.response?.data?.msg || 'Error desconocido'}`);
+    } finally {
+      setCreatingCategory(false);
+    }
   };
 
   // --- 3. Lógica de Guardado ---
   const handleSave = async () => {
     setIsSaving(true);
     setError(null);
+
+    console.log('📋 Survey completo antes de guardar:', survey);
 
     // Limpiamos los 'tempId' antes de enviar a la API
     const surveyToSave = {
@@ -249,10 +314,13 @@ function SurveyForm() {
             orden: oIndex + 1,
             condicional: o.condicional ? 1 : 0,
             condicional_pregunta_orden: condicionalOrden, // Enviamos el ORDEN en lugar del ID
+            excluyente: o.excluyente ? 1 : 0, // Marca si esta opción es excluyente
           };
         }),
       })),
     };
+
+    console.log('📤 Datos a enviar:', JSON.stringify(surveyToSave, null, 2));
 
     // (Quitamos IDs de encuesta/pregunta/opcion si es modo "Crear")
     if (!isEditMode) {
@@ -288,6 +356,7 @@ function SurveyForm() {
     <div className="mx-auto max-w-4xl p-6">
       <h1 className="mb-6 text-3xl font-bold">
         {isEditMode ? 'Editar Encuesta' : 'Crear Nueva Encuesta'}
+        <span className="ml-2 text-xs bg-green-500 text-white px-2 py-1 rounded">v2.0</span>
       </h1>
 
       {/* === Formulario de Datos Generales === */}
@@ -303,6 +372,7 @@ function SurveyForm() {
           value={survey.titulo}
           onChange={handleSurveyChange}
           required
+          maxLength={120}
         />
 
         <label htmlFor="descripcion" className="mb-1 block text-sm font-medium text-gray-700">
@@ -314,6 +384,7 @@ function SurveyForm() {
           value={survey.descripcion}
           onChange={handleSurveyChange}
           rows="3"
+          maxLength={500}
           className="w-full rounded-md border border-gray-300 p-2 focus:border-indigo-500 focus:ring-indigo-500"
         />
 
@@ -348,6 +419,7 @@ function SurveyForm() {
             value={survey.version}
             onChange={handleSurveyChange}
             required
+            maxLength={10}
           />
         </div>
       </div>
@@ -383,16 +455,26 @@ function SurveyForm() {
                 value={pregunta.texto}
                 onChange={(e) => handleQuestionChange(pregunta.tempId, e)}
                 required
+                maxLength={300}
               />
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label
-                    htmlFor={`p-cat-${pregunta.tempId}`}
-                    className="mb-1 block text-sm font-medium text-gray-700"
-                  >
-                    Categoría
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label
+                      htmlFor={`p-cat-${pregunta.tempId}`}
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Categoría
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowCategoryModal(true)}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      + Nueva
+                    </button>
+                  </div>
                   <select
                     id={`p-cat-${pregunta.tempId}`}
                     name="id_categoria_pregunta"
@@ -450,6 +532,7 @@ function SurveyForm() {
                             value={opcion.etiqueta}
                             onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
                             className="!mb-0"
+                            maxLength={200}
                           />
                           <Input
                             placeholder="Valor (ej: si)"
@@ -457,6 +540,7 @@ function SurveyForm() {
                             value={opcion.valor}
                             onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
                             className="!mb-0"
+                            maxLength={50}
                           />
                           <Input
                             type="number"
@@ -476,44 +560,67 @@ function SurveyForm() {
                           </Button>
                         </div>
 
-                        {/* Configuración condicional */}
-                        <div className="mt-2 flex items-center gap-3 border-t border-gray-200 pt-2">
-                          <label className="flex items-center gap-2 text-sm">
+                        {/* Configuración condicional y excluyente */}
+                        <div className="mt-2 space-y-2 border-t border-gray-200 pt-2">
+                          <div className="flex items-center gap-2">
                             <input
+                              id={`condicional-${opcion.tempId}`}
                               type="checkbox"
                               name="condicional"
                               checked={opcion.condicional || false}
                               onChange={(e) => {
-                                const newValue = e.target.checked;
-                                handleOptionChange(pregunta.tempId, opcion.tempId, {
-                                  target: { name: 'condicional', value: newValue }
-                                });
+                                console.log('🖱️ CLICK en checkbox condicional!', e.target.checked);
+                                handleOptionChange(pregunta.tempId, opcion.tempId, e);
                               }}
-                              className="h-4 w-4"
+                              onClick={() => console.log('👆 onClick disparado')}
+                              className="h-4 w-4 cursor-pointer"
                             />
-                            <span className="font-medium">🔗 Pregunta condicional</span>
-                          </label>
+                            <label htmlFor={`condicional-${opcion.tempId}`} className="text-sm font-medium cursor-pointer">
+                              🔗 Pregunta condicional
+                            </label>
 
-                          {opcion.condicional && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-600">Si se selecciona, mostrar pregunta:</span>
-                              <select
-                                name="condicional_pregunta_id"
-                                value={opcion.condicional_pregunta_id || ''}
-                                onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
-                                className="rounded border border-gray-300 px-2 py-1 text-sm"
-                              >
-                                <option value="">-- Seleccionar pregunta --</option>
-                                {survey.preguntas
-                                  .filter(p => p.tempId !== pregunta.tempId) // Excluir pregunta actual
-                                  .map(p => (
-                                    <option key={p.tempId} value={p.tempId}>
-                                      {p.texto || `Pregunta ${survey.preguntas.indexOf(p) + 1}`}
-                                    </option>
-                                  ))}
-                              </select>
-                            </div>
-                          )}
+                            {opcion.condicional && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-600">Si se selecciona, mostrar pregunta:</span>
+                                <select
+                                  name="condicional_pregunta_id"
+                                  value={opcion.condicional_pregunta_id || ''}
+                                  onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
+                                  className="rounded border border-gray-300 px-2 py-1 text-sm"
+                                >
+                                  <option value="">-- Seleccionar pregunta --</option>
+                                  {survey.preguntas
+                                    .filter(p => p.tempId !== pregunta.tempId) // Excluir pregunta actual
+                                    .map(p => (
+                                      <option key={p.tempId} value={p.tempId}>
+                                        {p.texto || `Pregunta ${survey.preguntas.indexOf(p) + 1}`}
+                                      </option>
+                                    ))}
+                                </select>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <input
+                              id={`excluyente-${opcion.tempId}`}
+                              type="checkbox"
+                              name="excluyente"
+                              checked={opcion.excluyente || false}
+                              onChange={(e) => {
+                                console.log('🖱️ CLICK en checkbox excluyente!', e.target.checked);
+                                handleOptionChange(pregunta.tempId, opcion.tempId, e);
+                              }}
+                              onClick={() => console.log('👆 onClick excluyente disparado')}
+                              className="h-4 w-4 cursor-pointer"
+                            />
+                            <label htmlFor={`excluyente-${opcion.tempId}`} className="text-sm font-medium cursor-pointer">
+                              🚫 Opción excluyente (No Aplica)
+                            </label>
+                            <span className="text-xs text-gray-500">
+                              (Si se marca, desmarca las demás opciones)
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -596,7 +703,7 @@ function SurveyForm() {
                       Defina rangos personalizados para el análisis de semáforo (0-10).
                       Si no se especifica, se usarán los rangos globales por defecto.
                     </p>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="mb-1 block text-sm font-medium text-red-600">
                           🔴 Rojo hasta:
@@ -606,7 +713,7 @@ function SurveyForm() {
                           step="0.1"
                           min="0"
                           max="10"
-                          placeholder="5.0 (default)"
+                          placeholder="3.34 (default)"
                           name="rango_rojo_max"
                           value={pregunta.rango_rojo_max || ''}
                           onChange={(e) => handleQuestionChange(pregunta.tempId, e)}
@@ -622,32 +729,16 @@ function SurveyForm() {
                           step="0.1"
                           min="0"
                           max="10"
-                          placeholder="7.0 (default)"
+                          placeholder="6.67 (default)"
                           name="rango_naranja_max"
                           value={pregunta.rango_naranja_max || ''}
                           onChange={(e) => handleQuestionChange(pregunta.tempId, e)}
                           className="!mb-0"
                         />
                       </div>
-                      <div>
-                        <label className="mb-1 block text-sm font-medium text-yellow-600">
-                          🟡 Amarillo hasta:
-                        </label>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          max="10"
-                          placeholder="8.0 (default)"
-                          name="rango_amarillo_max"
-                          value={pregunta.rango_amarillo_max || ''}
-                          onChange={(e) => handleQuestionChange(pregunta.tempId, e)}
-                          className="!mb-0"
-                        />
-                      </div>
                     </div>
                     <p className="text-xs text-gray-500">
-                      🟢 Verde: Valores superiores al Amarillo
+                      🟢 Verde: Valores superiores al Naranja
                     </p>
                   </div>
                 </details>
@@ -670,6 +761,66 @@ function SurveyForm() {
           {isSaving ? 'Guardando...' : isEditMode ? 'Actualizar Encuesta' : 'Guardar Encuesta'}
         </Button>
       </div>
+
+      {/* Modal para Crear Categoría */}
+      {showCategoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-xl font-semibold">Crear Nueva Categoría</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Nombre de la Categoría <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newCategory.nombre}
+                  onChange={(e) => setNewCategory(prev => ({ ...prev, nombre: e.target.value }))}
+                  className="w-full rounded-md border border-gray-300 p-2 focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="Ej: Agua y Saneamiento"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Descripción (Opcional)
+                </label>
+                <textarea
+                  value={newCategory.descripcion}
+                  onChange={(e) => setNewCategory(prev => ({ ...prev, descripcion: e.target.value }))}
+                  rows="3"
+                  className="w-full rounded-md border border-gray-300 p-2 focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="Describe brevemente esta categoría..."
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCategoryModal(false);
+                  setNewCategory({ nombre: '', descripcion: '' });
+                }}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-700 hover:bg-gray-50"
+                disabled={creatingCategory}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateCategory}
+                className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+                disabled={creatingCategory || !newCategory.nombre.trim()}
+              >
+                {creatingCategory ? 'Creando...' : 'Crear Categoría'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

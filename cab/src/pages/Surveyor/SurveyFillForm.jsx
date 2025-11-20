@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Save, ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react';
 import { getSurveyById } from '../../api/surveys';
-import { submitSurveyResponse } from '../../api/responses';
-import { getComunidades, getCatalogData } from '../../api/catalogos';
+import { submitSurveyResponse, getResponsesCount } from '../../api/responses';
+import { getDepartamentos, getMunicipiosByDepartamento, getComunidadesByMunicipio, getCatalogData } from '../../api/catalogos';
 import { useAuth } from '../../context/AuthContext';
 
 export default function SurveyFillForm() {
@@ -12,6 +12,8 @@ export default function SurveyFillForm() {
   const { userName } = useAuth(); // ⬅️ NUEVO - Obtener nombre del usuario logueado
 
   const [survey, setSurvey] = useState(null);
+  const [departamentos, setDepartamentos] = useState([]);
+  const [municipios, setMunicipios] = useState([]);
   const [communities, setCommunities] = useState([]);
   const [catalogOptions, setCatalogOptions] = useState({}); // Opciones de catálogos dinámicos
   const [visibleQuestions, setVisibleQuestions] = useState(new Set()); // IDs de preguntas visibles por condicionales
@@ -23,12 +25,14 @@ export default function SurveyFillForm() {
   // Datos del encabezado
   const [headerData, setHeaderData] = useState({
     boleta_num: '',
+    id_departamento: '',
+    id_municipio: '',
     id_comunidad: '',
     nombre_encuestada: '',
     edad_encuestada: '',
     sexo_encuestador: 'M',
     fecha_entrevista: new Date().toISOString().split('T')[0], // Fecha actual
-    vuelta: 1, // Número de vuelta/ronda
+    vuelta: 1, // Número de vuelta/ronda (auto-calculado)
   });
 
   // Respuestas de las preguntas
@@ -43,13 +47,13 @@ export default function SurveyFillForm() {
     setError(null);
 
     try {
-      const [surveyRes, communitiesRes] = await Promise.all([
+      const [surveyRes, departamentosRes] = await Promise.all([
         getSurveyById(surveyId),
-        getComunidades(),
+        getDepartamentos(),
       ]);
 
       setSurvey(surveyRes.data);
-      setCommunities(communitiesRes.data);
+      setDepartamentos(departamentosRes.data);
 
       // Cargar opciones de catálogos dinámicos
       const catalogosData = {};
@@ -98,6 +102,79 @@ export default function SurveyFillForm() {
     }));
   };
 
+  // Maneja el cambio de departamento - carga municipios
+  const handleDepartamentoChange = async (id_departamento) => {
+    setHeaderData((prev) => ({
+      ...prev,
+      id_departamento,
+      id_municipio: '',
+      id_comunidad: '',
+      vuelta: 1,
+    }));
+    setMunicipios([]);
+    setCommunities([]);
+
+    if (id_departamento) {
+      try {
+        const res = await getMunicipiosByDepartamento(id_departamento);
+        setMunicipios(res.data);
+      } catch (err) {
+        console.error('Error cargando municipios:', err);
+        setError('No se pudieron cargar los municipios');
+      }
+    }
+  };
+
+  // Maneja el cambio de municipio - carga comunidades
+  const handleMunicipioChange = async (id_municipio) => {
+    setHeaderData((prev) => ({
+      ...prev,
+      id_municipio,
+      id_comunidad: '',
+      vuelta: 1,
+    }));
+    setCommunities([]);
+
+    if (id_municipio) {
+      try {
+        const res = await getComunidadesByMunicipio(id_municipio);
+        setCommunities(res.data);
+      } catch (err) {
+        console.error('Error cargando comunidades:', err);
+        setError('No se pudieron cargar las comunidades');
+      }
+    }
+  };
+
+  // Maneja el cambio de comunidad - calcula vuelta automáticamente
+  const handleComunidadChange = async (id_comunidad) => {
+    if (id_comunidad) {
+      try {
+        // Obtener el conteo de respuestas para esta comunidad y encuesta
+        const res = await getResponsesCount(id_comunidad, surveyId);
+        setHeaderData((prev) => ({
+          ...prev,
+          id_comunidad,
+          vuelta: res.data.next_vuelta, // Auto-calcular vuelta
+        }));
+      } catch (err) {
+        console.error('Error calculando vuelta:', err);
+        // Si falla, mantener vuelta en 1
+        setHeaderData((prev) => ({
+          ...prev,
+          id_comunidad,
+          vuelta: 1,
+        }));
+      }
+    } else {
+      setHeaderData((prev) => ({
+        ...prev,
+        id_comunidad: '',
+        vuelta: 1,
+      }));
+    }
+  };
+
   const handleAnswerChange = (preguntaId, value, tipo, checked = null) => {
     // Manejar lógica condicional
     if (tipo === 'OpcionUnica' || tipo === 'SiNo') {
@@ -130,10 +207,30 @@ export default function SurveyFillForm() {
         const opcionId = parseInt(value);
         let nuevasOpciones = [...(current.opciones_multiple || [])];
 
+        // Encontrar la pregunta y la opción seleccionada
+        const pregunta = survey?.preguntas.find(p => p.id_pregunta === preguntaId);
+        const opcionSeleccionada = pregunta?.opciones.find(opt => opt.id_opcion === opcionId);
+
         if (checked) {
-          // Agregar opción si no existe
-          if (!nuevasOpciones.includes(opcionId)) {
-            nuevasOpciones.push(opcionId);
+          // Si la opción es excluyente, limpiar todas las demás
+          if (opcionSeleccionada?.excluyente) {
+            nuevasOpciones = [opcionId];
+          } else {
+            // Verificar si ya hay una opción excluyente seleccionada
+            const idExcluyente = nuevasOpciones.find(id => {
+              const opt = pregunta?.opciones.find(o => o.id_opcion === id);
+              return opt?.excluyente;
+            });
+
+            // Si ya hay una excluyente, primero quitarla
+            if (idExcluyente) {
+              nuevasOpciones = nuevasOpciones.filter(id => id !== idExcluyente);
+            }
+
+            // Agregar la nueva opción si no existe
+            if (!nuevasOpciones.includes(opcionId)) {
+              nuevasOpciones.push(opcionId);
+            }
           }
         } else {
           // Quitar opción
@@ -147,11 +244,22 @@ export default function SurveyFillForm() {
             id_pregunta: preguntaId,
             tipo: tipo,
             opciones_multiple: nuevasOpciones,
+            // Marcar si es una respuesta excluyente (No Aplica)
+            es_no_aplica: opcionSeleccionada?.excluyente && checked,
           },
         };
       }
 
       // Para otros tipos de pregunta
+      // Encontrar la pregunta y opción para manejar excluyentes
+      const pregunta = survey?.preguntas.find(p => p.id_pregunta === preguntaId);
+      let esNoAplica = false;
+
+      if (tipo === 'OpcionUnica') {
+        const opcionSeleccionada = pregunta?.opciones.find(opt => opt.id_opcion === parseInt(value));
+        esNoAplica = opcionSeleccionada?.excluyente || false;
+      }
+
       return {
         ...prev,
         [preguntaId]: {
@@ -162,7 +270,7 @@ export default function SurveyFillForm() {
             : tipo === 'SiNo'
             ? { valor_texto: value, puntos: value === 'Si' ? 1 : 0 }
             : tipo === 'OpcionUnica'
-            ? { id_opcion: parseInt(value) }
+            ? { id_opcion: parseInt(value), es_no_aplica: esNoAplica }
             : tipo === 'Texto' || tipo === 'Fecha' || tipo === 'Catalogo'
             ? { valor_texto: value }
             : { valor: value }),
@@ -258,6 +366,7 @@ export default function SurveyFillForm() {
               id_pregunta: ans.id_pregunta,
               id_opcion: opcionId,
               puntos: opcion?.puntos || 1, // Usar puntos de la opción, default 1
+              es_no_aplica: ans.es_no_aplica || false, // Marcar si es No Aplica
             });
           });
         } else {
@@ -269,6 +378,7 @@ export default function SurveyFillForm() {
             ...(ans.valor_numerico !== null && ans.valor_numerico !== undefined && { valor_numerico: ans.valor_numerico }),
             ...(ans.valor_texto && { valor_texto: ans.valor_texto }),
             puntos: opcion?.puntos || ans.puntos || 0,
+            es_no_aplica: ans.es_no_aplica || false, // Marcar si es No Aplica
           });
         }
       });
@@ -400,6 +510,49 @@ export default function SurveyFillForm() {
                 </p>
               </div>
 
+              {/* Departamento */}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Departamento <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={headerData.id_departamento}
+                  onChange={(e) => handleDepartamentoChange(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Seleccionar departamento...</option>
+                  {departamentos.map((dep) => (
+                    <option key={dep.id_departamento} value={dep.id_departamento}>
+                      {dep.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Municipio */}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Municipio <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={headerData.id_municipio}
+                  onChange={(e) => handleMunicipioChange(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                  required
+                  disabled={!headerData.id_departamento}
+                >
+                  <option value="">
+                    {headerData.id_departamento ? 'Seleccionar municipio...' : 'Primero seleccione departamento'}
+                  </option>
+                  {municipios.map((mun) => (
+                    <option key={mun.id_municipio} value={mun.id_municipio}>
+                      {mun.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Comunidad */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
@@ -407,11 +560,14 @@ export default function SurveyFillForm() {
                 </label>
                 <select
                   value={headerData.id_comunidad}
-                  onChange={(e) => handleHeaderChange('id_comunidad', e.target.value)}
+                  onChange={(e) => handleComunidadChange(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500"
                   required
+                  disabled={!headerData.id_municipio}
                 >
-                  <option value="">Seleccionar...</option>
+                  <option value="">
+                    {headerData.id_municipio ? 'Seleccionar comunidad...' : 'Primero seleccione municipio'}
+                  </option>
                   {communities.map((com) => (
                     <option key={com.id_comunidad} value={com.id_comunidad}>
                       {com.nombre}
@@ -499,26 +655,20 @@ export default function SurveyFillForm() {
                 />
               </div>
 
-              {/* Número de Vuelta/Ronda */}
+              {/* Número de Vuelta/Ronda (Auto-calculado) */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
-                  Vuelta/Ronda <span className="text-red-500">*</span>
+                  Vuelta/Ronda (Auto-calculado)
                 </label>
-                <select
-                  value={headerData.vuelta}
-                  onChange={(e) => handleHeaderChange('vuelta', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="1">1ra Vuelta (Primera visita)</option>
-                  <option value="2">2da Vuelta</option>
-                  <option value="3">3ra Vuelta</option>
-                  <option value="4">4ta Vuelta</option>
-                  <option value="5">5ta Vuelta</option>
-                  <option value="6">6ta Vuelta</option>
-                </select>
+                <input
+                  type="text"
+                  value={headerData.vuelta ? `Vuelta ${headerData.vuelta}` : 'Seleccione una comunidad'}
+                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-gray-600"
+                  readOnly
+                  disabled
+                />
                 <p className="mt-1 text-xs text-gray-500">
-                  Seleccione el número de visita a esta comunidad
+                  ⚡ Se calcula automáticamente según las respuestas previas en esta comunidad
                 </p>
               </div>
             </div>
@@ -618,20 +768,44 @@ export default function SurveyFillForm() {
                 {/* Tipo: Opción Múltiple */}
                 {pregunta.tipo === 'OpcionMultiple' && pregunta.opciones && (
                   <div className="space-y-2">
-                    {pregunta.opciones.map((opcion) => (
-                      <label key={opcion.id_opcion} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          value={opcion.id_opcion}
-                          checked={answers[pregunta.id_pregunta]?.opciones_multiple?.includes(opcion.id_opcion) || false}
-                          onChange={(e) =>
-                            handleAnswerChange(pregunta.id_pregunta, e.target.value, 'OpcionMultiple', e.target.checked)
-                          }
-                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span>{opcion.etiqueta}</span>
-                      </label>
-                    ))}
+                    {pregunta.opciones.map((opcion) => {
+                      const inputId = `q-${pregunta.id_pregunta}-op-${opcion.id_opcion}`;
+                      // Convertir AMBOS a números para comparar
+                      const opcionIdNum = parseInt(opcion.id_opcion);
+                      const opcionesSeleccionadas = answers[pregunta.id_pregunta]?.opciones_multiple || [];
+                      const isChecked = opcionesSeleccionadas.includes(opcionIdNum);
+
+                      return (
+                        <div key={opcion.id_opcion} className="flex items-center gap-2 p-2 border rounded">
+                          <input
+                            id={inputId}
+                            type="checkbox"
+                            name={`q_${pregunta.id_pregunta}[]`}
+                            value={opcion.id_opcion}
+                            checked={isChecked}
+                            onChange={(e) => {
+                              handleAnswerChange(pregunta.id_pregunta, e.target.value, 'OpcionMultiple', e.target.checked);
+                            }}
+                            style={{
+                              width: '20px',
+                              height: '20px',
+                              accentColor: 'blue'
+                            }}
+                          />
+                          <label
+                            htmlFor={inputId}
+                            className="cursor-pointer select-none flex-1"
+                          >
+                            {opcion.etiqueta}
+                            {opcion.excluyente && <span className="ml-2 text-xs text-orange-600">(No Aplica)</span>}
+                          </label>
+                          {/* Indicador visual del estado */}
+                          <span className={`text-xs px-2 py-1 rounded ${isChecked ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                            {isChecked ? '✓ Marcado' : '○ No marcado'}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 

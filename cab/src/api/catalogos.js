@@ -56,3 +56,27 @@ export const getCatalogData = (tabla, valor, etiqueta) => {
 export const getAvailableCatalogs = () => {
   return API.get('/catalogos/available');
 };
+
+/**
+ * Obtiene los municipios de un departamento específico
+ * @param {number} id_departamento - ID del departamento
+ */
+export const getMunicipiosByDepartamento = (id_departamento) => {
+  return API.get(`/departamentos/${id_departamento}/municipios`);
+};
+
+/**
+ * Obtiene las comunidades de un municipio específico
+ * @param {number} id_municipio - ID del municipio
+ */
+export const getComunidadesByMunicipio = (id_municipio) => {
+  return API.get(`/municipios/${id_municipio}/comunidades`);
+};
+
+/**
+ * Crea una nueva categoría de pregunta
+ * @param {object} categoria - Datos de la categoría (nombre, descripcion)
+ */
+export const createCategoriaPregunta = (categoria) => {
+  return API.post('/categorias-preguntas', categoria);
+};
