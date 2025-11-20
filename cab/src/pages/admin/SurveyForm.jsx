@@ -171,15 +171,41 @@ function SurveyForm() {
         if (p.tempId !== questionTempId) return p;
 
         // Si cambia el tipo, reiniciamos las opciones según corresponda
-        const tiposConOpciones = ['OpcionUnica', 'OpcionMultiple', 'SiNo'];
-        const newOpciones =
-          name === 'tipo' && tiposConOpciones.includes(value)
-            ? p.opciones.length > 0
-              ? p.opciones
-              : [] // Mantiene opciones si ya existen
-            : name === 'tipo'
-              ? []
-              : p.opciones; // Borra opciones si no es de opción
+        let newOpciones = p.opciones;
+
+        if (name === 'tipo') {
+          if (value === 'SiNo') {
+            // Para SiNo, crear automáticamente las dos opciones predefinidas
+            newOpciones = [
+              {
+                tempId: Date.now(),
+                etiqueta: 'Sí',
+                valor: 'si',
+                puntos: 10,
+                orden: 1,
+                condicional: false,
+                condicional_pregunta_id: null,
+                excluyente: false,
+              },
+              {
+                tempId: Date.now() + 1,
+                etiqueta: 'No',
+                valor: 'no',
+                puntos: 0,
+                orden: 2,
+                condicional: false,
+                condicional_pregunta_id: null,
+                excluyente: false,
+              }
+            ];
+          } else if (value === 'OpcionUnica' || value === 'OpcionMultiple') {
+            // Para otros tipos con opciones, mantener las existentes o iniciar vacío
+            newOpciones = p.opciones.length > 0 ? p.opciones : [];
+          } else {
+            // Para tipos sin opciones (Numerica, Texto, Fecha, Catalogo), limpiar
+            newOpciones = [];
+          }
+        }
 
         return { ...p, [name]: value, opciones: newOpciones };
       }),
@@ -588,7 +614,7 @@ function SurveyForm() {
               </div>
 
               {/* --- Constructor de Opciones (Anidado) --- */}
-              {(pregunta.tipo === 'OpcionUnica' || pregunta.tipo === 'OpcionMultiple' || pregunta.tipo === 'SiNo') && (
+              {(pregunta.tipo === 'OpcionUnica' || pregunta.tipo === 'OpcionMultiple') && (
                 <div className="mt-4 border-t border-gray-200 pt-4">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="text-md font-semibold">Opciones de Respuesta</h4>
@@ -720,6 +746,57 @@ function SurveyForm() {
                   >
                     + Añadir Opción
                   </Button>
+                </div>
+              )}
+
+              {/* --- Opciones SiNo (No editables) --- */}
+              {pregunta.tipo === 'SiNo' && (
+                <div className="mt-4 border-t border-gray-200 pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-md font-semibold">Opciones de Respuesta</h4>
+                    <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                      ✓ Generadas automáticamente
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {pregunta.opciones.map((opcion, oIndex) => (
+                      <div
+                        key={opcion.tempId}
+                        className="rounded bg-green-50 p-3 border-2 border-green-200"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <div className="flex-1">
+                            <input
+                              value={opcion.etiqueta}
+                              className="w-full rounded-md border border-green-300 bg-white p-2 text-sm font-semibold text-green-800"
+                              readOnly
+                              disabled
+                            />
+                          </div>
+                          <Input
+                            value={opcion.valor}
+                            className="!mb-0 w-32"
+                            readOnly
+                            disabled
+                          />
+                          <Input
+                            type="number"
+                            value={opcion.puntos}
+                            className="!mb-0 w-24"
+                            readOnly
+                            disabled
+                          />
+                        </div>
+                        <p className="mt-2 text-xs text-green-700">
+                          🔒 Esta opción es automática y no se puede modificar ni eliminar
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+                    <strong>ℹ️ Nota:</strong> Las preguntas de tipo "Sí/No" tienen opciones predefinidas que no pueden modificarse.
+                    Si necesitas opciones personalizadas, cambia el tipo de pregunta a "Opción Única".
+                  </div>
                 </div>
               )}
 
