@@ -6,6 +6,14 @@ import { submitSurveyResponse, getResponsesCount } from '../../api/responses';
 import { getDepartamentos, getMunicipiosByDepartamento, getComunidadesByMunicipio, getCatalogData } from '../../api/catalogos';
 import { useAuth } from '../../context/AuthContext';
 
+// Helper para renderizar texto con formato markdown (negrita)
+const RenderMarkdown = ({ text }) => {
+  if (!text) return null;
+  // Convertir **texto** a <strong>texto</strong>
+  const html = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  return <span dangerouslySetInnerHTML={{ __html: html }} />;
+};
+
 export default function SurveyFillForm() {
   const { surveyId } = useParams();
   const navigate = useNavigate();
@@ -689,7 +697,7 @@ export default function SurveyFillForm() {
               ?.map((pregunta, index) => (
               <div key={pregunta.id_pregunta} className="rounded-lg bg-white p-6 shadow-md">
                 <h3 className="mb-4 font-semibold text-gray-800">
-                  {index + 1}. {pregunta.texto}
+                  {index + 1}. <RenderMarkdown text={pregunta.texto} />
                   {pregunta.requerida && <span className="text-red-500"> *</span>}
                 </h3>
 
@@ -759,7 +767,7 @@ export default function SurveyFillForm() {
                           className="h-4 w-4"
                           required={pregunta.requerida}
                         />
-                        <span>{opcion.etiqueta}</span>
+                        <span><RenderMarkdown text={opcion.etiqueta} /></span>
                       </label>
                     ))}
                   </div>
@@ -796,7 +804,7 @@ export default function SurveyFillForm() {
                             htmlFor={inputId}
                             className="cursor-pointer select-none flex-1"
                           >
-                            {opcion.etiqueta}
+                            <RenderMarkdown text={opcion.etiqueta} />
                             {opcion.excluyente && <span className="ml-2 text-xs text-orange-600">(No Aplica)</span>}
                           </label>
                           {/* Indicador visual del estado */}

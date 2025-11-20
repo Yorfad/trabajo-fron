@@ -6,6 +6,13 @@ import { getGruposFocales, getCategoriasPreguntas, createCategoriaPregunta } fro
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input'; // Usaremos tu Input
 
+// Helper para convertir markdown a HTML
+const parseMarkdown = (text) => {
+  if (!text) return text;
+  // Convertir **texto** a <strong>texto</strong>
+  return text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+};
+
 // Estado inicial para una pregunta nueva
 const newQuestionInitialState = {
   // Usamos un ID temporal para el 'key' de React
@@ -59,6 +66,10 @@ function SurveyForm() {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategory, setNewCategory] = useState({ nombre: '', descripcion: '' });
   const [creatingCategory, setCreatingCategory] = useState(false);
+  // Estado para el modal de pegado masivo de opciones
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+  const [currentQuestionForPaste, setCurrentQuestionForPaste] = useState(null);
 
   const { surveyId } = useParams();
   const navigate = useNavigate();
@@ -272,6 +283,58 @@ function SurveyForm() {
     }
   };
 
+  // --- Funciones para Pegado Masivo de Opciones ---
+  const handleOpenPasteModal = (questionTempId) => {
+    setCurrentQuestionForPaste(questionTempId);
+    setPasteText('');
+    setShowPasteModal(true);
+  };
+
+  const handlePasteOptions = () => {
+    if (!pasteText.trim()) {
+      alert('Por favor, pegue al menos una línea de texto');
+      return;
+    }
+
+    // Dividir el texto pegado por saltos de línea
+    const lines = pasteText.split('\n').filter(line => line.trim() !== '');
+
+    if (lines.length === 0) {
+      alert('No se encontraron líneas válidas');
+      return;
+    }
+
+    // Crear nuevas opciones a partir de las líneas
+    const nuevasOpciones = lines.map((linea, index) => ({
+      tempId: Date.now() + index,
+      etiqueta: linea.trim(),
+      valor: linea.trim().substring(0, 50), // Limitar a 50 caracteres
+      puntos: 1,
+      orden: index + 1,
+      condicional: false,
+      condicional_pregunta_id: null,
+      excluyente: false,
+    }));
+
+    // Añadir las opciones a la pregunta
+    setSurvey((prev) => ({
+      ...prev,
+      preguntas: prev.preguntas.map((p) => {
+        if (p.tempId !== currentQuestionForPaste) return p;
+        return {
+          ...p,
+          opciones: [...p.opciones, ...nuevasOpciones],
+        };
+      }),
+    }));
+
+    // Cerrar el modal y limpiar
+    setShowPasteModal(false);
+    setPasteText('');
+    setCurrentQuestionForPaste(null);
+    alert(`Se crearon ${nuevasOpciones.length} opciones exitosamente`);
+  };
+
   // --- 3. Lógica de Guardado ---
   const handleSave = async () => {
     setIsSaving(true);
@@ -448,15 +511,24 @@ function SurveyForm() {
 
               <h3 className="mb-3 text-lg font-semibold">Pregunta {pIndex + 1}</h3>
 
-              <Input
-                label="Texto de la Pregunta"
-                id={`p-texto-${pregunta.tempId}`}
-                name="texto"
-                value={pregunta.texto}
-                onChange={(e) => handleQuestionChange(pregunta.tempId, e)}
-                required
-                maxLength={300}
-              />
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Texto de la Pregunta <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id={`p-texto-${pregunta.tempId}`}
+                  name="texto"
+                  value={pregunta.texto}
+                  onChange={(e) => handleQuestionChange(pregunta.tempId, e)}
+                  required
+                  maxLength={300}
+                  className="w-full rounded-md border border-gray-300 p-2 focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="¿Cuándo se lava las manos?"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  💡 Tip: Usa <code className="bg-gray-100 px-1 rounded">**negrita**</code> para resaltar texto importante
+                </p>
+              </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
@@ -518,7 +590,17 @@ function SurveyForm() {
               {/* --- Constructor de Opciones (Anidado) --- */}
               {(pregunta.tipo === 'OpcionUnica' || pregunta.tipo === 'OpcionMultiple' || pregunta.tipo === 'SiNo') && (
                 <div className="mt-4 border-t border-gray-200 pt-4">
-                  <h4 className="text-md mb-2 font-semibold">Opciones de Respuesta</h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-md font-semibold">Opciones de Respuesta</h4>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPasteModal(pregunta.tempId)}
+                      className="text-xs text-green-600 hover:text-green-800 flex items-center gap-1"
+                      title="Pegar múltiples opciones desde Excel"
+                    >
+                      📋 Pegar desde Excel
+                    </button>
+                  </div>
                   <div className="space-y-3">
                     {pregunta.opciones.map((opcion, oIndex) => (
                       <div
@@ -526,14 +608,19 @@ function SurveyForm() {
                         className="rounded bg-gray-50 p-3"
                       >
                         <div className="flex items-center space-x-2">
-                          <Input
-                            placeholder="Etiqueta (ej: Sí)"
-                            name="etiqueta"
-                            value={opcion.etiqueta}
-                            onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
-                            className="!mb-0"
-                            maxLength={200}
-                          />
+                          <div className="flex-1">
+                            <input
+                              placeholder="Etiqueta (ej: Antes de comer)"
+                              name="etiqueta"
+                              value={opcion.etiqueta}
+                              onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
+                              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                              maxLength={200}
+                            />
+                            <p className="mt-0.5 text-xs text-gray-400">
+                              Usa **negrita** si necesitas
+                            </p>
+                          </div>
                           <Input
                             placeholder="Valor (ej: si)"
                             name="valor"
@@ -816,6 +903,66 @@ function SurveyForm() {
                 disabled={creatingCategory || !newCategory.nombre.trim()}
               >
                 {creatingCategory ? 'Creando...' : 'Crear Categoría'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Pegar Opciones desde Excel */}
+      {showPasteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="mx-4 w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-xl font-semibold">📋 Pegar Opciones desde Excel</h3>
+
+            <div className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+              <strong>💡 Instrucciones:</strong>
+              <ul className="ml-4 mt-2 list-disc">
+                <li>Copia las opciones desde Excel (una por línea)</li>
+                <li>Pégalas en el área de texto a continuación</li>
+                <li>Cada línea se convertirá en una opción automáticamente</li>
+                <li>Puedes usar <strong>**negrita**</strong> para resaltar texto</li>
+              </ul>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Opciones (una por línea)
+                </label>
+                <textarea
+                  value={pasteText}
+                  onChange={(e) => setPasteText(e.target.value)}
+                  rows="12"
+                  className="w-full rounded-md border border-gray-300 p-3 font-mono text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="Antes de comer&#10;Antes de cocinar&#10;Antes de dar de comer&#10;Después de usar la letrina&#10;Después de cambiar pañales&#10;Después de hacer la limpieza&#10;Después de tocar dinero&#10;Cuando las tiene sucias"
+                  autoFocus
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  {pasteText.split('\n').filter(l => l.trim()).length} opciones detectadas
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPasteModal(false);
+                  setPasteText('');
+                  setCurrentQuestionForPaste(null);
+                }}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handlePasteOptions}
+                className="rounded-md bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
+                disabled={!pasteText.trim()}
+              >
+                ✓ Crear {pasteText.split('\n').filter(l => l.trim()).length} Opciones
               </button>
             </div>
           </div>
