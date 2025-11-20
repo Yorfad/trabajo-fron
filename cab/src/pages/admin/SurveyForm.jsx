@@ -45,21 +45,13 @@ const newOptionInitialState = {
   excluyente: false,
 };
 
-// Estado inicial para una sección nueva
-const newSectionInitialState = {
-  tempId: Date.now(),
-  id_categoria_pregunta: '',
-  nombre_seccion: '', // Nombre opcional de la sección
-  preguntas: [],
-};
-
 // Estado inicial para una encuesta nueva
 const newSurveyInitialState = {
   titulo: '',
   descripcion: '',
   id_grupo_focal: '',
   version: '1.0',
-  secciones: [], // Ahora usamos secciones en lugar de preguntas directamente
+  preguntas: [],
 };
 
 function SurveyForm() {
