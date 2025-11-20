@@ -45,13 +45,21 @@ const newOptionInitialState = {
   excluyente: false,
 };
 
+// Estado inicial para una sección nueva
+const newSectionInitialState = {
+  tempId: Date.now(),
+  id_categoria_pregunta: '',
+  nombre_seccion: '', // Nombre opcional de la sección
+  preguntas: [],
+};
+
 // Estado inicial para una encuesta nueva
 const newSurveyInitialState = {
   titulo: '',
   descripcion: '',
   id_grupo_focal: '',
   version: '1.0',
-  preguntas: [],
+  secciones: [], // Ahora usamos secciones en lugar de preguntas directamente
 };
 
 function SurveyForm() {
@@ -749,7 +757,7 @@ function SurveyForm() {
                 </div>
               )}
 
-              {/* --- Opciones SiNo (Etiquetas fijas, valores y puntos editables) --- */}
+              {/* --- Opciones SiNo (Etiquetas fijas, valores/puntos/condicionales editables) --- */}
               {pregunta.tipo === 'SiNo' && (
                 <div className="mt-4 border-t border-gray-200 pt-4">
                   <div className="flex items-center justify-between mb-2">
@@ -806,14 +814,49 @@ function SurveyForm() {
                             </p>
                           </div>
                         </div>
+
+                        {/* Configuración condicional para Sí/No */}
+                        <div className="mt-3 space-y-2 border-t border-green-200 pt-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              id={`sino-condicional-${opcion.tempId}`}
+                              type="checkbox"
+                              name="condicional"
+                              checked={opcion.condicional || false}
+                              onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
+                              className="h-4 w-4 cursor-pointer"
+                            />
+                            <label htmlFor={`sino-condicional-${opcion.tempId}`} className="text-sm font-medium cursor-pointer">
+                              🔗 Si selecciona "{opcion.etiqueta}", mostrar pregunta:
+                            </label>
+
+                            {opcion.condicional && (
+                              <select
+                                name="condicional_pregunta_id"
+                                value={opcion.condicional_pregunta_id || ''}
+                                onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
+                                className="rounded border border-gray-300 px-2 py-1 text-sm"
+                              >
+                                <option value="">-- Seleccionar pregunta --</option>
+                                {survey.preguntas
+                                  .filter(p => p.tempId !== pregunta.tempId)
+                                  .map(p => (
+                                    <option key={p.tempId} value={p.tempId}>
+                                      {p.texto || `Pregunta ${survey.preguntas.indexOf(p) + 1}`}
+                                    </option>
+                                  ))}
+                              </select>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
                   <div className="mt-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
-                    <strong>💡 Tip:</strong> Las etiquetas "Sí" y "No" son fijas, pero puedes ajustar los <strong>valores</strong> y <strong>puntos</strong> según el contexto de tu pregunta.
+                    <strong>💡 Tip:</strong> Las etiquetas "Sí" y "No" son fijas, pero puedes ajustar <strong>valores</strong>, <strong>puntos</strong> y <strong>condicionales</strong> según tu pregunta.
                     <br />
                     <span className="text-xs mt-1 block">
-                      Ejemplo: Para "¿Tiene enfermedades?" puedes invertir los puntos: Sí=0, No=10
+                      Ejemplo: "¿Tiene familiar con discapacidad?" → Si "Sí", mostrar pregunta sobre tipo de discapacidad
                     </span>
                   </div>
                 </div>
