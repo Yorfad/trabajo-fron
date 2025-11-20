@@ -72,7 +72,7 @@ function SurveyForm() {
   const [error, setError] = useState(null);
   // Estado para el modal de crear categoría
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [newCategory, setNewCategory] = useState({ nombre: '', descripcion: '' });
+  const [newCategory, setNewCategory] = useState({ nombre: '' });
   const [creatingCategory, setCreatingCategory] = useState(false);
   // Estado para el modal de pegado masivo de opciones
   const [showPasteModal, setShowPasteModal] = useState(false);
@@ -1090,21 +1090,12 @@ function SurveyForm() {
                   onChange={(e) => setNewCategory(prev => ({ ...prev, nombre: e.target.value }))}
                   className="w-full rounded-md border border-gray-300 p-2 focus:border-indigo-500 focus:ring-indigo-500"
                   placeholder="Ej: Agua y Saneamiento"
+                  maxLength="60"
                   autoFocus
                 />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Descripción (Opcional)
-                </label>
-                <textarea
-                  value={newCategory.descripcion}
-                  onChange={(e) => setNewCategory(prev => ({ ...prev, descripcion: e.target.value }))}
-                  rows="3"
-                  className="w-full rounded-md border border-gray-300 p-2 focus:border-indigo-500 focus:ring-indigo-500"
-                  placeholder="Describe brevemente esta categoría..."
-                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Máximo 60 caracteres ({newCategory.nombre.length}/60)
+                </p>
               </div>
             </div>
 
@@ -1113,7 +1104,7 @@ function SurveyForm() {
                 type="button"
                 onClick={() => {
                   setShowCategoryModal(false);
-                  setNewCategory({ nombre: '', descripcion: '' });
+                  setNewCategory({ nombre: '' });
                 }}
                 className="rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-700 hover:bg-gray-50"
                 disabled={creatingCategory}
