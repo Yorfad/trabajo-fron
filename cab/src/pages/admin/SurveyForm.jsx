@@ -104,28 +104,46 @@ function SurveyForm() {
 
         if (isEditMode) {
           const surveyRes = await getSurveyById(surveyId);
-          // Añadimos 'tempId' a las preguntas y opciones para la gestión del estado
+          // Convertir preguntas planas a estructura de secciones agrupadas por categoría
+          const preguntasConTempId = surveyRes.data.preguntas.map((p) => ({
+            ...p,
+            tempId: p.id_pregunta || Date.now() + Math.random(),
+            opciones: p.opciones.map((o) => ({
+              ...o,
+              tempId: o.id_opcion || Date.now() + Math.random(),
+              condicional: o.condicional || false,
+              excluyente: o.excluyente || false,
+              puntos: o.puntos !== undefined ? o.puntos : 1,
+            })),
+          }));
+
+          // Agrupar preguntas por categoría en secciones
+          const seccionesMap = {};
+          preguntasConTempId.forEach(pregunta => {
+            const catId = pregunta.id_categoria_pregunta;
+            if (!seccionesMap[catId]) {
+              seccionesMap[catId] = {
+                tempId: Date.now() + Math.random(),
+                id_categoria_pregunta: catId,
+                nombre_seccion: pregunta.categoria_nombre || `Sección ${catId}`,
+                preguntas: []
+              };
+            }
+            seccionesMap[catId].preguntas.push(pregunta);
+          });
+
           const surveyData = {
             ...surveyRes.data,
-            preguntas: surveyRes.data.preguntas.map((p) => ({
-              ...p,
-              tempId: p.id_pregunta || Date.now(),
-              opciones: p.opciones.map((o) => ({
-                ...o,
-                tempId: o.id_opcion || Date.now(),
-                // Asegurar valores por defecto para campos que pueden no existir
-                condicional: o.condicional || false,
-                excluyente: o.excluyente || false,
-                puntos: o.puntos !== undefined ? o.puntos : 1,
-              })),
-            })),
+            secciones: Object.values(seccionesMap),
+            preguntas: preguntasConTempId, // Mantener para compatibilidad temporal
           };
           setSurvey(surveyData);
         } else {
-          // Modo Crear: pre-seleccionamos el primer grupo y categoría
+          // Modo Crear: iniciar con una sección vacía
           setSurvey({
             ...newSurveyInitialState,
             id_grupo_focal: loadedCatalogs.grupos[0]?.id_grupo_focal || '',
+            secciones: [],
           });
         }
       } catch (err) {
@@ -147,7 +165,60 @@ function SurveyForm() {
     setSurvey((prev) => ({ ...prev, [name]: value }));
   };
 
-  // --- Funciones de PREGUNTAS ---
+  // --- Funciones de SECCIONES ---
+  const handleAddSection = () => {
+    setSurvey((prev) => ({
+      ...prev,
+      secciones: [
+        ...prev.secciones,
+        {
+          ...newSectionInitialState,
+          tempId: Date.now() + Math.random(),
+          id_categoria_pregunta: catalogs.categorias[0]?.id_categoria_pregunta || '',
+        },
+      ],
+    }));
+  };
+
+  const handleDeleteSection = (sectionTempId) => {
+    setSurvey((prev) => ({
+      ...prev,
+      secciones: prev.secciones.filter((s) => s.tempId !== sectionTempId),
+    }));
+  };
+
+  const handleSectionChange = (sectionTempId, field, value) => {
+    setSurvey((prev) => ({
+      ...prev,
+      secciones: prev.secciones.map((s) => {
+        if (s.tempId !== sectionTempId) return s;
+        return { ...s, [field]: value };
+      }),
+    }));
+  };
+
+  // --- Funciones de PREGUNTAS (ahora dentro de secciones) ---
+  const handleAddQuestionToSection = (sectionTempId) => {
+    setSurvey((prev) => ({
+      ...prev,
+      secciones: prev.secciones.map((s) => {
+        if (s.tempId !== sectionTempId) return s;
+        return {
+          ...s,
+          preguntas: [
+            ...s.preguntas,
+            {
+              ...newQuestionInitialState,
+              tempId: Date.now() + Math.random(),
+              // La pregunta hereda la categoría de la sección
+              id_categoria_pregunta: s.id_categoria_pregunta,
+            },
+          ],
+        };
+      }),
+    }));
+  };
+
   const handleAddQuestion = () => {
     setSurvey((prev) => ({
       ...prev,
@@ -164,9 +235,23 @@ function SurveyForm() {
   };
 
   const handleDeleteQuestion = (questionTempId) => {
+    // Eliminar de preguntas antiguas (compatibilidad)
     setSurvey((prev) => ({
       ...prev,
-      preguntas: prev.preguntas.filter((p) => p.tempId !== questionTempId),
+      preguntas: prev.preguntas?.filter((p) => p.tempId !== questionTempId) || [],
+    }));
+  };
+
+  const handleDeleteQuestionFromSection = (sectionTempId, questionTempId) => {
+    setSurvey((prev) => ({
+      ...prev,
+      secciones: prev.secciones.map((s) => {
+        if (s.tempId !== sectionTempId) return s;
+        return {
+          ...s,
+          preguntas: s.preguntas.filter((p) => p.tempId !== questionTempId),
+        };
+      }),
     }));
   };
 
