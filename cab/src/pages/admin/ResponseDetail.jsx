@@ -56,21 +56,24 @@ export default function ResponseDetail() {
         if (!preguntasAgrupadas[id]) {
           preguntasAgrupadas[id] = {
             ...preg,
-            puntajes: []
+            detalles: []
           };
         }
-        preguntasAgrupadas[id].puntajes.push(parseFloat(preg.puntaje_0a10 || 0));
+        // Guardar el detalle completo para recalcular desde puntos
+        preguntasAgrupadas[id].detalles.push(preg);
       });
 
-      // Calcular semáforo para cada pregunta (sumando puntajes de OpcionMultiple)
+      // Calcular semáforo para cada pregunta usando calcularPromedioRespuesta
       categoriasRecalculadas[categoria] = Object.values(preguntasAgrupadas).map(preg => {
-        const puntajeTotal = preg.puntajes.reduce((sum, p) => sum + p, 0);
+        // Recalcular desde puntos usando la función correcta
+        const puntajeTotal = calcularPromedioRespuesta(preg.detalles);
         const colorSemaforo = obtenerColorSemaforo(puntajeTotal);
 
         return {
           ...preg,
           puntaje_0a10: puntajeTotal.toFixed(2),
-          color_semaforo: colorSemaforo
+          color_semaforo: colorSemaforo,
+          detalles: undefined // Remover detalles del objeto final
         };
       });
     });

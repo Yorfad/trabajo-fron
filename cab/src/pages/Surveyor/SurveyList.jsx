@@ -165,11 +165,8 @@ const SurveyList = () => {
         {/* Tip */}
         <div className="mt-6 rounded-lg bg-blue-50 p-4">
           <p className="text-sm text-blue-800">
-            💡 <strong>Tip:</strong> Puedes ver los datos recopilados en la sección{' '}
-            <Link to="/surveyor/viewer" className="font-semibold underline">
-              Visualización de Datos
-            </Link>
-            . Recuerda ingresar el código único de boleta para cada encuesta.
+            💡 <strong>Tip:</strong> Recuerda ingresar el código único de boleta para cada encuesta.
+            Los datos recopilados son procesados automáticamente por el sistema.
           </p>
         </div>
       </div>

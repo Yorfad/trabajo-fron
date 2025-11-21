@@ -17,7 +17,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
   const surveyorLinks = [
     { path: '/surveyor/list', label: 'Encuestas Disponibles', icon: '📋' },
-    { path: '/surveyor/viewer', label: 'Mis Datos', icon: '🔎' },
   ];
 
   const linksToShow = isAdmin ? adminLinks : surveyorLinks;

@@ -8,30 +8,101 @@
  */
 
 /**
+ * Calcula el puntaje máximo correcto de una pregunta desde los detalles
+ * @param {Array} detalles - Todos los detalles de la pregunta (de todos los usuarios)
+ * @param {string} tipoPregunta - Tipo de pregunta
+ * @returns {number} Puntaje máximo correcto
+ */
+function calcularPuntajeMaximoCorrecto(detalles, tipoPregunta) {
+  if (!detalles || detalles.length === 0) return 10;
+
+  const puntos = detalles.map(d => parseFloat(d.puntos || 0));
+
+  // Para SiNo y OpcionUnica: MAX de puntos
+  if (tipoPregunta === 'SiNo' || tipoPregunta === 'OpcionUnica') {
+    return Math.max(...puntos, 1); // Mínimo 1
+  }
+
+  // Para OpcionMultiple: SUM de puntos únicos
+  if (tipoPregunta === 'OpcionMultiple') {
+    // Obtener opciones únicas y sumar sus puntos
+    const opcionesUnicas = {};
+    detalles.forEach(d => {
+      if (d.id_opcion && !opcionesUnicas[d.id_opcion]) {
+        opcionesUnicas[d.id_opcion] = parseFloat(d.puntos || 1);
+      }
+    });
+    const suma = Object.values(opcionesUnicas).reduce((a, b) => a + b, 0);
+    return Math.max(suma, 1); // Mínimo 1
+  }
+
+  // Para otros tipos: usar 10
+  return 10;
+}
+
+/**
  * Calcula el promedio correcto de una respuesta
+ * IGNORA puntaje_0a10 de la BD y recalcula desde puntos
  * @param {Array} detalles - Array de respuestas_detalle
  * @returns {number} Promedio en escala 0-10
  */
 export function calcularPromedioRespuesta(detalles) {
-  if (!detalles || detalles.length === 0) return 0;
+  if (!detalles || detalles.length === 0) {
+    console.log('⚠️ calcularPromedioRespuesta: No hay detalles');
+    return 0;
+  }
 
-  // Agrupar por pregunta y sumar puntajes
-  const puntajesPorPregunta = {};
+  console.log('🔢 calcularPromedioRespuesta: Recibido', detalles.length, 'detalles');
+
+  // Agrupar por pregunta
+  const preguntasAgrupadas = {};
 
   detalles.forEach(detalle => {
     const idPregunta = detalle.id_pregunta;
-    const puntaje = parseFloat(detalle.puntaje_0a10 || 0);
-
-    if (!puntajesPorPregunta[idPregunta]) {
-      puntajesPorPregunta[idPregunta] = 0;
+    if (!preguntasAgrupadas[idPregunta]) {
+      preguntasAgrupadas[idPregunta] = {
+        tipo: detalle.pregunta_tipo || detalle.tipo || 'SiNo',
+        detalles: []
+      };
     }
-
-    puntajesPorPregunta[idPregunta] += puntaje;
+    preguntasAgrupadas[idPregunta].detalles.push(detalle);
   });
 
-  // Calcular promedio de los totales de preguntas
-  const totales = Object.values(puntajesPorPregunta);
-  const promedio = totales.reduce((sum, val) => sum + val, 0) / totales.length;
+  console.log('🔢 Preguntas agrupadas:', Object.keys(preguntasAgrupadas).length);
+
+  // Calcular puntaje de cada pregunta
+  const puntajesPorPregunta = [];
+
+  Object.entries(preguntasAgrupadas).forEach(([idPregunta, pregunta]) => {
+    const { tipo, detalles: detallesPregunta } = pregunta;
+
+    // Sumar puntos de esta pregunta (para opciones múltiples)
+    const puntosTotal = detallesPregunta.reduce((sum, d) => {
+      const puntos = parseFloat(d.puntos || 0);
+      console.log(`  - Detalle pregunta ${idPregunta}: puntos=${puntos}`, d);
+      return sum + puntos;
+    }, 0);
+
+    // Calcular puntaje máximo correcto
+    const puntajeMaximo = calcularPuntajeMaximoCorrecto(detallesPregunta, tipo);
+
+    // Calcular puntaje en escala 0-10
+    const puntaje = puntajeMaximo > 0 ? (puntosTotal / puntajeMaximo) * 10 : 0;
+
+    console.log(`🔢 Pregunta ${idPregunta} (${tipo}): puntos=${puntosTotal}, max=${puntajeMaximo}, puntaje=${puntaje}`);
+
+    puntajesPorPregunta.push(Math.max(0, Math.min(10, puntaje))); // Limitar entre 0 y 10
+  });
+
+  // Calcular promedio de todas las preguntas
+  if (puntajesPorPregunta.length === 0) {
+    console.log('⚠️ No hay puntajes por pregunta');
+    return 0;
+  }
+
+  const promedio = puntajesPorPregunta.reduce((sum, val) => sum + val, 0) / puntajesPorPregunta.length;
+
+  console.log(`🔢 Promedio final: ${promedio} (de ${puntajesPorPregunta.length} preguntas)`);
 
   return promedio;
 }

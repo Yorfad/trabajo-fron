@@ -11,7 +11,6 @@ import SurveyForm from './pages/admin/SurveyForm';
 import SurveyList from './pages/Surveyor/SurveyList';
 import SurveyFillForm from './pages/Surveyor/SurveyFillForm';
 import AppLayout from './components/layout/AppLayout';
-import DataViewer from './pages/Surveyor/DataViewer';
 import ResponseDetail from './pages/admin/ResponseDetail';
 
 const App = () => {
@@ -42,7 +41,6 @@ const App = () => {
         <Route element={<AppLayout />}>
           <Route path="/surveyor/list" element={<SurveyList />} />
           <Route path="/surveyor/fill/:surveyId" element={<SurveyFillForm />} />
-          <Route path="/surveyor/viewer" element={<DataViewer />} />
         </Route>
       </Route>
     </Routes>

@@ -132,6 +132,7 @@ export default function UnifiedDashboard() {
       data.semaforo_categorias = data.semaforo_categorias.map(categoria => {
         // Obtener todas las respuestas de esta categoría
         const detallesCategoria = [];
+        const respuestasUnicas = new Set(); // Para contar respuestas únicas
 
         if (data.respuestas && Array.isArray(data.respuestas)) {
           data.respuestas.forEach(respuesta => {
@@ -140,7 +141,11 @@ export default function UnifiedDashboard() {
                 d.categoria_nombre === categoria.categoria ||
                 d.categoria === categoria.categoria
               );
-              detallesCategoria.push(...detallesCat);
+
+              if (detallesCat.length > 0) {
+                detallesCategoria.push(...detallesCat);
+                respuestasUnicas.add(respuesta.id_respuesta); // Contar esta respuesta
+              }
             }
           });
         }
@@ -151,7 +156,8 @@ export default function UnifiedDashboard() {
         return {
           ...categoria,
           promedio: promedio.toFixed(2),
-          color_semaforo: colorSemaforo
+          color_semaforo: colorSemaforo,
+          total_respuestas: respuestasUnicas.size // Contar respuestas únicas, no detalles
         };
       });
     }
@@ -159,8 +165,9 @@ export default function UnifiedDashboard() {
     // 3. RECALCULAR SEMÁFORO POR PREGUNTAS
     if (data.semaforo_preguntas && Array.isArray(data.semaforo_preguntas)) {
       data.semaforo_preguntas = data.semaforo_preguntas.map(pregunta => {
-        // Calcular el puntaje por usuario para esta pregunta
+        // Calcular el puntaje por usuario para esta pregunta usando calcularPromedioRespuesta
         const puntajesPorUsuario = [];
+        const respuestasUnicas = new Set(); // Para contar respuestas únicas
 
         if (data.respuestas && Array.isArray(data.respuestas)) {
           data.respuestas.forEach(respuesta => {
@@ -170,12 +177,11 @@ export default function UnifiedDashboard() {
                 d.id_pregunta === pregunta.id_pregunta
               );
 
-              // Sumar los puntajes de esta pregunta (para OpcionMultiple)
+              // Calcular el puntaje usando la función que recalcula desde puntos
               if (detallesPreg.length > 0) {
-                const puntajeUsuario = detallesPreg.reduce((sum, d) =>
-                  sum + parseFloat(d.puntaje_0a10 || 0), 0
-                );
+                const puntajeUsuario = calcularPromedioRespuesta(detallesPreg);
                 puntajesPorUsuario.push(puntajeUsuario);
+                respuestasUnicas.add(respuesta.id_respuesta); // Contar esta respuesta
               }
             }
           });
@@ -191,7 +197,8 @@ export default function UnifiedDashboard() {
         return {
           ...pregunta,
           promedio: promedio.toFixed(2),
-          color_semaforo: colorSemaforo
+          color_semaforo: colorSemaforo,
+          total_respuestas: respuestasUnicas.size // Contar respuestas únicas, no detalles
         };
       });
     }
@@ -217,8 +224,22 @@ export default function UnifiedDashboard() {
         selectedEncuesta
       );
 
+      console.log('📦 DATOS RECIBIDOS DEL BACKEND:', res.data);
+      console.log('📦 Total respuestas:', res.data.respuestas?.length);
+      if (res.data.respuestas && res.data.respuestas.length > 0) {
+        console.log('📦 Primera respuesta completa:', res.data.respuestas[0]);
+        console.log('📦 Detalles de primera respuesta:', res.data.respuestas[0].detalles);
+      }
+      console.log('📦 Semáforo categorías (backend):', res.data.semaforo_categorias);
+      console.log('📦 Semáforo preguntas (backend):', res.data.semaforo_preguntas);
+
       // 🔥 RECALCULAR TODOS LOS PROMEDIOS EN EL FRONTEND
       const datosRecalculados = recalcularPromediosCompletos(res.data);
+
+      console.log('✅ DATOS RECALCULADOS:', datosRecalculados);
+      console.log('✅ Semáforo categorías (frontend):', datosRecalculados.semaforo_categorias);
+      console.log('✅ Semáforo preguntas (frontend):', datosRecalculados.semaforo_preguntas);
+
       setAnalyticsData(datosRecalculados);
     } catch (err) {
       console.error('Error al obtener análisis:', err);
