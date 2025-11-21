@@ -702,30 +702,21 @@ export default function SurveyFillForm() {
                 </h3>
 
                 {/* Tipo: Sí/No */}
-                {pregunta.tipo === 'SiNo' && (
+                {pregunta.tipo === 'SiNo' && pregunta.opciones && (
                   <div className="flex gap-4">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name={`pregunta-${pregunta.id_pregunta}`}
-                        value="Si"
-                        onChange={(e) => handleAnswerChange(pregunta.id_pregunta, e.target.value, 'SiNo')}
-                        className="h-4 w-4"
-                        required={pregunta.requerida}
-                      />
-                      <span>Sí</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name={`pregunta-${pregunta.id_pregunta}`}
-                        value="No"
-                        onChange={(e) => handleAnswerChange(pregunta.id_pregunta, e.target.value, 'SiNo')}
-                        className="h-4 w-4"
-                        required={pregunta.requerida}
-                      />
-                      <span>No</span>
-                    </label>
+                    {pregunta.opciones.map((opcion) => (
+                      <label key={opcion.id_opcion} className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name={`pregunta-${pregunta.id_pregunta}`}
+                          value={opcion.id_opcion}
+                          onChange={(e) => handleAnswerChange(pregunta.id_pregunta, e.target.value, 'SiNo')}
+                          className="h-4 w-4"
+                          required={pregunta.requerida}
+                        />
+                        <span>{opcion.etiqueta}</span>
+                      </label>
+                    ))}
                   </div>
                 )}
 
