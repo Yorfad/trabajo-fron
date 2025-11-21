@@ -63,6 +63,23 @@ export default function SurveyFillForm() {
       setSurvey(surveyRes.data);
       setDepartamentos(departamentosRes.data);
 
+      // DEBUG: Ver todas las opciones con condicionales
+      console.log('🔍 DEBUG - Opciones con condicionales:');
+      surveyRes.data.preguntas.forEach((p, idx) => {
+        if (p.opciones) {
+          p.opciones.forEach(o => {
+            if (o.condicional || o.condicional_pregunta_id) {
+              console.log(`  Pregunta ${idx + 1} (ID: ${p.id_pregunta}), Opción "${o.etiqueta}":`, {
+                id_opcion: o.id_opcion,
+                condicional: o.condicional,
+                condicional_pregunta_id: o.condicional_pregunta_id,
+                tipo_condicional_pregunta_id: typeof o.condicional_pregunta_id
+              });
+            }
+          });
+        }
+      });
+
       // Cargar opciones de catálogos dinámicos
       const catalogosData = {};
       const catalogoPromises = surveyRes.data.preguntas
@@ -184,6 +201,8 @@ export default function SurveyFillForm() {
   };
 
   const handleAnswerChange = (preguntaId, value, tipo, checked = null) => {
+    console.log('🎯 handleAnswerChange llamado:', { preguntaId, value, tipo });
+
     // Manejar lógica condicional
     if (tipo === 'OpcionUnica' || tipo === 'SiNo') {
       const opcionId = parseInt(value);
@@ -192,12 +211,29 @@ export default function SurveyFillForm() {
       const pregunta = survey?.preguntas?.find(p => p.id_pregunta === preguntaIdNum);
       const opcionSeleccionada = pregunta?.opciones?.find(o => parseInt(o.id_opcion) === opcionId);
 
+      console.log('🔎 Búsqueda de opción:', {
+        preguntaIdNum,
+        opcionId,
+        preguntaEncontrada: !!pregunta,
+        opcionEncontrada: !!opcionSeleccionada,
+        opcionSeleccionada: opcionSeleccionada ? {
+          etiqueta: opcionSeleccionada.etiqueta,
+          condicional: opcionSeleccionada.condicional,
+          condicional_pregunta_id: opcionSeleccionada.condicional_pregunta_id
+        } : null
+      });
+
       // Convertir condicional a booleano (puede venir como 0/1 desde SQL Server)
       const esCondicional = Boolean(opcionSeleccionada?.condicional);
 
       if (esCondicional && opcionSeleccionada?.condicional_pregunta_id) {
         // Mostrar pregunta condicional
-        setVisibleQuestions(prev => new Set([...prev, opcionSeleccionada.condicional_pregunta_id]));
+        console.log('✅ MOSTRANDO pregunta condicional ID:', opcionSeleccionada.condicional_pregunta_id);
+        setVisibleQuestions(prev => {
+          const newSet = new Set([...prev, opcionSeleccionada.condicional_pregunta_id]);
+          console.log('  Preguntas visibles ahora:', Array.from(newSet));
+          return newSet;
+        });
       } else {
         // Ocultar preguntas condicionales de otras opciones de esta pregunta
         const otrasPreguntasCondicionales = pregunta?.opciones
@@ -207,9 +243,12 @@ export default function SurveyFillForm() {
           })
           ?.map(o => o.condicional_pregunta_id) || [];
 
+        console.log('❌ OCULTANDO preguntas condicionales:', otrasPreguntasCondicionales);
+
         setVisibleQuestions(prev => {
           const newSet = new Set(prev);
           otrasPreguntasCondicionales.forEach(id => newSet.delete(id));
+          console.log('  Preguntas visibles ahora:', Array.from(newSet));
           return newSet;
         });
       }
@@ -716,12 +755,30 @@ export default function SurveyFillForm() {
                   p.opciones?.some(o => {
                     // Convertir condicional a booleano (puede venir como 0/1 desde SQL Server)
                     const esCondicionalBool = Boolean(o.condicional);
-                    return esCondicionalBool && o.condicional_pregunta_id === pregunta.id_pregunta;
+                    const match = esCondicionalBool && o.condicional_pregunta_id === pregunta.id_pregunta;
+
+                    if (match) {
+                      console.log(`🔗 Pregunta ${pregunta.id_pregunta} es CONDICIONAL de opción "${o.etiqueta}" (ID: ${o.id_opcion})`);
+                    }
+
+                    return match;
                   })
                 );
 
+                const estaVisible = visibleQuestions.has(pregunta.id_pregunta);
+                const mostrar = !esCondicional || estaVisible;
+
+                if (esCondicional) {
+                  console.log(`👁️ Pregunta ${pregunta.id_pregunta} "${pregunta.texto.substring(0, 40)}...":`, {
+                    esCondicional,
+                    estaVisible,
+                    mostrar,
+                    visibleQuestions: Array.from(visibleQuestions)
+                  });
+                }
+
                 // Mostrar si NO es condicional O si está en el set de visibles
-                return !esCondicional || visibleQuestions.has(pregunta.id_pregunta);
+                return mostrar;
               })
               ?.map((pregunta, index) => (
               <div key={pregunta.id_pregunta} className="rounded-lg bg-white p-6 shadow-md">
