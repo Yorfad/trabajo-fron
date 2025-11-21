@@ -100,13 +100,28 @@ function SurveyForm() {
           const preguntasConTempId = surveyRes.data.preguntas.map((p) => ({
             ...p,
             tempId: p.id_pregunta || Date.now() + Math.random(),
-            opciones: p.opciones.map((o) => ({
-              ...o,
-              tempId: o.id_opcion || Date.now() + Math.random(),
-              condicional: o.condicional || false,
-              excluyente: o.excluyente || false,
-              puntos: o.puntos !== undefined ? o.puntos : 1,
-            })),
+            opciones: p.opciones.map((o) => {
+              // Convertir condicional_pregunta_id (ID) a condicional_pregunta_orden (orden numérico)
+              let condicionalOrden = null;
+              if (o.condicional && o.condicional_pregunta_id) {
+                // Buscar la pregunta condicional en el array para obtener su orden
+                const preguntaIndex = surveyRes.data.preguntas.findIndex(
+                  pg => pg.id_pregunta === o.condicional_pregunta_id
+                );
+                if (preguntaIndex !== -1) {
+                  condicionalOrden = preguntaIndex + 1; // Los órdenes empiezan en 1
+                }
+              }
+
+              return {
+                ...o,
+                tempId: o.id_opcion || Date.now() + Math.random(),
+                condicional: o.condicional || false,
+                condicional_pregunta_orden: condicionalOrden, // Guardar el orden, no el ID
+                excluyente: o.excluyente || false,
+                puntos: o.puntos !== undefined ? o.puntos : 1,
+              };
+            }),
           }));
 
           // Agrupar preguntas por categoría en secciones
@@ -470,15 +485,11 @@ function SurveyForm() {
             valorUnico = `opcion_${oIndex + 1}`;
           }
 
-          // Mapear tempId de pregunta condicional a su orden
+          // El orden ya viene desde el UI en condicional_pregunta_orden
           let condicionalOrden = null;
-          if (o.condicional && o.condicional_pregunta_id) {
-            const preguntaIndex = survey.preguntas.findIndex(
-              (pg) => pg.tempId === o.condicional_pregunta_id
-            );
-            if (preguntaIndex !== -1) {
-              condicionalOrden = preguntaIndex + 1; // El orden empieza en 1
-            }
+          if (o.condicional && o.condicional_pregunta_orden) {
+            // Ya tenemos el orden directamente, solo parsearlo a número
+            condicionalOrden = parseInt(o.condicional_pregunta_orden);
           }
 
           return {
@@ -781,17 +792,17 @@ function SurveyForm() {
                               <div className="flex items-center gap-2">
                                 <span className="text-xs text-gray-600">Si se selecciona, mostrar pregunta:</span>
                                 <select
-                                  name="condicional_pregunta_id"
-                                  value={opcion.condicional_pregunta_id || ''}
+                                  name="condicional_pregunta_orden"
+                                  value={opcion.condicional_pregunta_orden || ''}
                                   onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
                                   className="rounded border border-gray-300 px-2 py-1 text-sm"
                                 >
                                   <option value="">-- Seleccionar pregunta --</option>
                                   {survey.preguntas
                                     .filter(p => p.tempId !== pregunta.tempId) // Excluir pregunta actual
-                                    .map(p => (
-                                      <option key={p.tempId} value={p.tempId}>
-                                        {p.texto || `Pregunta ${survey.preguntas.indexOf(p) + 1}`}
+                                    .map((p, idx) => (
+                                      <option key={p.tempId} value={idx + 1}>
+                                        Pregunta {idx + 1}: {p.texto ? (p.texto.substring(0, 50) + (p.texto.length > 50 ? '...' : '')) : 'Sin texto'}
                                       </option>
                                     ))}
                                 </select>

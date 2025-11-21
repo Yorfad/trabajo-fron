@@ -208,38 +208,67 @@ export default function SurveyFillForm() {
       const opcionId = parseInt(value);
       // Convertir preguntaId a número para comparar
       const preguntaIdNum = parseInt(preguntaId);
-      const pregunta = survey?.preguntas?.find(p => p.id_pregunta === preguntaIdNum);
-      const opcionSeleccionada = pregunta?.opciones?.find(o => parseInt(o.id_opcion) === opcionId);
+
+      // DEBUG: Ver estructura completa
+      console.log('🔍 DEBUG - Estructura de survey:', {
+        hayPreguntas: !!survey?.preguntas,
+        cantidadPreguntas: survey?.preguntas?.length,
+        tiposPreguntaIds: survey?.preguntas?.map(p => ({
+          id: p.id_pregunta,
+          tipo: typeof p.id_pregunta
+        })),
+        preguntaBuscada: preguntaIdNum,
+        tipoPreguntaBuscada: typeof preguntaIdNum
+      });
+
+      // Buscar pregunta de forma más flexible (comparando como strings también)
+      const pregunta = survey?.preguntas?.find(p => {
+        return String(p.id_pregunta) === String(preguntaIdNum) || p.id_pregunta === preguntaIdNum;
+      });
+
+      const opcionSeleccionada = pregunta?.opciones?.find(o => {
+        return String(o.id_opcion) === String(opcionId) || parseInt(o.id_opcion) === opcionId;
+      });
 
       console.log('🔎 Búsqueda de opción:', {
         preguntaIdNum,
         opcionId,
         preguntaEncontrada: !!pregunta,
+        preguntaEncontradaId: pregunta?.id_pregunta,
+        cantidadOpciones: pregunta?.opciones?.length,
         opcionEncontrada: !!opcionSeleccionada,
         opcionSeleccionada: opcionSeleccionada ? {
           etiqueta: opcionSeleccionada.etiqueta,
           condicional: opcionSeleccionada.condicional,
-          condicional_pregunta_id: opcionSeleccionada.condicional_pregunta_id
+          condicional_pregunta_id: opcionSeleccionada.condicional_pregunta_id,
+          tipo_condicional: typeof opcionSeleccionada.condicional_pregunta_id
         } : null
       });
 
       // Convertir condicional a booleano (puede venir como 0/1 desde SQL Server)
       const esCondicional = Boolean(opcionSeleccionada?.condicional);
+      const preguntaCondicionalId = opcionSeleccionada?.condicional_pregunta_id;
 
-      if (esCondicional && opcionSeleccionada?.condicional_pregunta_id) {
+      // Validar que condicional_pregunta_id no sea null ni undefined
+      if (esCondicional && preguntaCondicionalId != null) {
         // Mostrar pregunta condicional
-        console.log('✅ MOSTRANDO pregunta condicional ID:', opcionSeleccionada.condicional_pregunta_id);
+        console.log('✅ MOSTRANDO pregunta condicional ID:', preguntaCondicionalId);
         setVisibleQuestions(prev => {
-          const newSet = new Set([...prev, opcionSeleccionada.condicional_pregunta_id]);
+          const newSet = new Set([...prev, preguntaCondicionalId]);
           console.log('  Preguntas visibles ahora:', Array.from(newSet));
           return newSet;
         });
       } else {
+        if (esCondicional && preguntaCondicionalId == null) {
+          console.warn('⚠️ Opción marcada como condicional pero sin pregunta condicional asignada');
+        }
+
         // Ocultar preguntas condicionales de otras opciones de esta pregunta
         const otrasPreguntasCondicionales = pregunta?.opciones
           ?.filter(o => {
             const esOtraCondicional = Boolean(o.condicional);
-            return parseInt(o.id_opcion) !== opcionId && esOtraCondicional && o.condicional_pregunta_id;
+            const otraOpcionId = parseInt(o.id_opcion);
+            return otraOpcionId !== opcionId && esOtraCondicional && o.condicional_pregunta_id != null;
           })
           ?.map(o => o.condicional_pregunta_id) || [];
 
@@ -328,6 +357,12 @@ export default function SurveyFillForm() {
       } else if (tipo === 'SiNo') {
         // Ahora SiNo funciona igual que OpcionUnica (usa id_opcion)
         const opcionSeleccionada = pregunta?.opciones.find(opt => parseInt(opt.id_opcion) === parseInt(value));
+        console.log('💾 Guardando respuesta SiNo:', {
+          preguntaId,
+          value,
+          id_opcion: parseInt(value),
+          opcionSeleccionada: opcionSeleccionada?.etiqueta
+        });
         datosRespuesta = {
           id_opcion: parseInt(value),
           es_no_aplica: Boolean(opcionSeleccionada?.excluyente)
@@ -375,8 +410,26 @@ export default function SurveyFillForm() {
 
     // Validar que todas las preguntas requeridas tengan respuesta
     const preguntasRequeridas = survey.preguntas.filter((p) => p.requerida);
+    console.log('🔍 Validando preguntas requeridas:', preguntasRequeridas.length);
+
     for (const pregunta of preguntasRequeridas) {
+      // Verificar si esta pregunta es condicional (aparece en alguna opción)
+      const esCondicional = survey.preguntas.some(p =>
+        p.opciones?.some(o => {
+          const esCondicionalBool = Boolean(o.condicional);
+          return esCondicionalBool && o.condicional_pregunta_id === pregunta.id_pregunta;
+        })
+      );
+
+      // Si es condicional y NO está visible, skip la validación
+      if (esCondicional && !visibleQuestions.has(pregunta.id_pregunta)) {
+        console.log(`⏭️ Skip validación - Pregunta condicional oculta: "${pregunta.texto}"`);
+        continue; // No validar preguntas condicionales ocultas
+      }
+
       const respuesta = answers[pregunta.id_pregunta];
+      console.log(`📝 Validando pregunta ${pregunta.id_pregunta} (${pregunta.tipo}):`, respuesta);
+
       if (!respuesta) {
         setError(`La pregunta "${pregunta.texto}" es requerida`);
         return false;
@@ -384,10 +437,16 @@ export default function SurveyFillForm() {
 
       // Validar según tipo
       if (pregunta.tipo === 'OpcionMultiple') {
-        if (!respuesta.opciones_multiple || respuesta.opciones_multiple.length === 0) {
-          setError(`Debe seleccionar al menos una opción en: "${pregunta.texto}"`);
+        // OpcionMultiple puede quedar sin respuesta (se considera como 0 puntos)
+        // No es necesario validar, permitir continuar
+      } else if (pregunta.tipo === 'SiNo') {
+        // SiNo funciona igual que OpcionUnica (usa id_opcion)
+        if (!respuesta.id_opcion) {
+          console.error('❌ Pregunta SiNo sin id_opcion:', { pregunta: pregunta.texto, respuesta });
+          setError(`La pregunta "${pregunta.texto}" es requerida`);
           return false;
         }
+        console.log('✅ Pregunta SiNo válida:', pregunta.texto, 'id_opcion:', respuesta.id_opcion);
       } else if (pregunta.tipo === 'OpcionUnica') {
         if (!respuesta.id_opcion) {
           setError(`La pregunta "${pregunta.texto}" es requerida`);
@@ -429,18 +488,40 @@ export default function SurveyFillForm() {
         // Obtener datos de la pregunta para los puntos
         const pregunta = survey.preguntas.find(p => p.id_pregunta === ans.id_pregunta);
 
-        if (ans.tipo === 'OpcionMultiple' && ans.opciones_multiple && ans.opciones_multiple.length > 0) {
+        // Verificar si la pregunta es condicional y está oculta
+        const esCondicional = survey.preguntas.some(p =>
+          p.opciones?.some(o => {
+            const esCondicionalBool = Boolean(o.condicional);
+            return esCondicionalBool && o.condicional_pregunta_id === ans.id_pregunta;
+          })
+        );
+
+        // Si es condicional y NO está visible, no enviar esta respuesta
+        if (esCondicional && !visibleQuestions.has(ans.id_pregunta)) {
+          return; // Skip preguntas condicionales ocultas
+        }
+
+        if (ans.tipo === 'OpcionMultiple') {
           // Para OpcionMultiple: crear una fila por cada opción seleccionada
-          ans.opciones_multiple.forEach((opcionId) => {
-            // Buscar puntos de la opción
-            const opcion = pregunta?.opciones?.find(o => o.id_opcion === opcionId);
+          if (ans.opciones_multiple && ans.opciones_multiple.length > 0) {
+            ans.opciones_multiple.forEach((opcionId) => {
+              // Buscar puntos de la opción
+              const opcion = pregunta?.opciones?.find(o => o.id_opcion === opcionId);
+              respuestasArray.push({
+                id_pregunta: ans.id_pregunta,
+                id_opcion: opcionId,
+                puntos: opcion?.puntos || 1, // Usar puntos de la opción, default 1
+                es_no_aplica: ans.es_no_aplica || false, // Marcar si es No Aplica
+              });
+            });
+          } else {
+            // Si no hay opciones seleccionadas, enviar respuesta con puntos = 0
             respuestasArray.push({
               id_pregunta: ans.id_pregunta,
-              id_opcion: opcionId,
-              puntos: opcion?.puntos || 1, // Usar puntos de la opción, default 1
-              es_no_aplica: ans.es_no_aplica || false, // Marcar si es No Aplica
+              puntos: 0, // Sin selección = 0 puntos
+              es_no_aplica: false,
             });
-          });
+          }
         } else {
           // Para otros tipos: una sola fila
           const opcion = pregunta?.opciones?.find(o => o.id_opcion === ans.id_opcion);
