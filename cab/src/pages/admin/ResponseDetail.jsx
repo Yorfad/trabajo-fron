@@ -4,6 +4,7 @@ import { ArrowLeft, User, Calendar, MapPin, FileText, Download } from 'lucide-re
 import { TrafficLightBadge } from '../../components/ui/TrafficLight';
 import { getResponseDetail } from '../../api/analytics';
 import { generateResponseDetailPDF } from '../../utils/pdfGenerator';
+import { calcularPromedioRespuesta, obtenerColorSemaforo } from '../../utils/calculateAverage';
 
 export default function ResponseDetail() {
   const { id } = useParams();
@@ -23,13 +24,63 @@ export default function ResponseDetail() {
 
     try {
       const res = await getResponseDetail(id);
-      setData(res.data);
+
+      // 🔥 RECALCULAR SEMÁFOROS EN EL FRONTEND
+      const datosRecalculados = recalcularSemaforosDetalle(res.data);
+      setData(datosRecalculados);
     } catch (err) {
       console.error('Error al cargar detalle de respuesta:', err);
       setError(err.response?.data?.msg || 'Error al cargar datos');
     } finally {
       setLoading(false);
     }
+  };
+
+  /**
+   * Recalcula los semáforos de cada pregunta en la vista de detalle
+   */
+  const recalcularSemaforosDetalle = (data) => {
+    if (!data || !data.categorias) return data;
+
+    console.log('🔄 Recalculando semáforos en vista de detalle...');
+
+    // Recorrer cada categoría y recalcular semáforos de preguntas
+    const categoriasRecalculadas = {};
+
+    Object.entries(data.categorias).forEach(([categoria, preguntas]) => {
+      // Agrupar preguntas por id_pregunta (para manejar OpcionMultiple)
+      const preguntasAgrupadas = {};
+
+      preguntas.forEach(preg => {
+        const id = preg.id_pregunta;
+        if (!preguntasAgrupadas[id]) {
+          preguntasAgrupadas[id] = {
+            ...preg,
+            puntajes: []
+          };
+        }
+        preguntasAgrupadas[id].puntajes.push(parseFloat(preg.puntaje_0a10 || 0));
+      });
+
+      // Calcular semáforo para cada pregunta (sumando puntajes de OpcionMultiple)
+      categoriasRecalculadas[categoria] = Object.values(preguntasAgrupadas).map(preg => {
+        const puntajeTotal = preg.puntajes.reduce((sum, p) => sum + p, 0);
+        const colorSemaforo = obtenerColorSemaforo(puntajeTotal);
+
+        return {
+          ...preg,
+          puntaje_0a10: puntajeTotal.toFixed(2),
+          color_semaforo: colorSemaforo
+        };
+      });
+    });
+
+    console.log('✅ Semáforos recalculados en vista de detalle');
+
+    return {
+      ...data,
+      categorias: categoriasRecalculadas
+    };
   };
 
   const handleDownloadPDF = () => {
@@ -67,20 +118,20 @@ export default function ResponseDetail() {
   const { respuesta, categorias } = data;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6">
       <div className="mx-auto max-w-5xl">
         {/* Header con botones volver y descargar */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-3 flex flex-col gap-3 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-700"
+            className="flex items-center justify-center gap-2 text-sm text-blue-600 hover:text-blue-700 sm:justify-start sm:text-base"
           >
             <ArrowLeft className="h-4 w-4" />
             Volver
           </button>
           <button
             onClick={handleDownloadPDF}
-            className="flex items-center gap-2 rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700"
+            className="flex items-center justify-center gap-2 rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 sm:text-base"
           >
             <Download className="h-4 w-4" />
             Descargar PDF
@@ -88,8 +139,8 @@ export default function ResponseDetail() {
         </div>
 
         {/* Información General */}
-        <div className="mb-6 rounded-lg bg-white p-6 shadow">
-          <h1 className="mb-4 text-2xl font-bold text-gray-900">
+        <div className="mb-4 rounded-lg bg-white p-4 shadow sm:mb-6 sm:p-6">
+          <h1 className="mb-3 text-xl font-bold text-gray-900 sm:mb-4 sm:text-2xl">
             Detalle de Respuesta - Boleta #{respuesta.boleta_num}
           </h1>
 

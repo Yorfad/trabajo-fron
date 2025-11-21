@@ -1,16 +1,16 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 /**
  * Mapea colores de semáforo a colores RGB para PDF
- * Rangos: Verde >= 66.67%, Amarillo >= 33.34%, Rojo < 33.34%
+ * Rangos: Verde >= 66.67%, Naranja >= 33.34%, Rojo < 33.34%
  */
 const getSemaforoColor = (color) => {
   switch (color) {
     case 'Verde':
       return [34, 197, 94]; // green-500
-    case 'Amarillo':
-      return [234, 179, 8]; // yellow-500
+    case 'Naranja':
+      return [249, 115, 22]; // orange-500
     case 'Rojo':
       return [239, 68, 68]; // red-500
     default:
@@ -23,27 +23,32 @@ const getSemaforoColor = (color) => {
  * @param {Object} data - Datos del análisis filtrado
  */
 export const generateFilteredAnalyticsPDF = (data) => {
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.width;
-  let yPosition = 20;
+  try {
+    if (!data || !data.filtros) {
+      throw new Error('Datos inválidos para generar PDF');
+    }
 
-  // Título principal
-  doc.setFontSize(18);
-  doc.setFont(undefined, 'bold');
-  doc.text('Análisis de Resultados CAB', pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 10;
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    let yPosition = 20;
 
-  // Información de filtros
-  doc.setFontSize(11);
-  doc.setFont(undefined, 'normal');
-  doc.text(`Comunidad: ${data.filtros.comunidad}`, 14, yPosition);
-  yPosition += 6;
-  doc.text(`Vuelta: ${data.filtros.vuelta}`, 14, yPosition);
-  yPosition += 6;
-  doc.text(`Encuesta: ${data.filtros.encuesta}`, 14, yPosition);
-  yPosition += 6;
-  doc.text(`Fecha de generación: ${new Date().toLocaleDateString('es-GT')}`, 14, yPosition);
-  yPosition += 12;
+    // Título principal
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.text('Análisis de Resultados CAB', pageWidth / 2, yPosition, { align: 'center' });
+    yPosition += 10;
+
+    // Información de filtros
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Comunidad: ${data.filtros.comunidad || 'N/A'}`, 14, yPosition);
+    yPosition += 6;
+    doc.text(`Vuelta: ${data.filtros.vuelta || 'N/A'}`, 14, yPosition);
+    yPosition += 6;
+    doc.text(`Encuesta: ${data.filtros.encuesta || 'N/A'}`, 14, yPosition);
+    yPosition += 6;
+    doc.text(`Fecha de generación: ${new Date().toLocaleDateString('es-GT')}`, 14, yPosition);
+    yPosition += 12;
 
   // Semáforo por Categoría
   doc.setFontSize(14);
@@ -214,9 +219,15 @@ export const generateFilteredAnalyticsPDF = (data) => {
     );
   }
 
-  // Descargar el PDF
-  const fileName = `Analisis_${data.filtros.comunidad.replace(/\s+/g, '_')}_Vuelta${data.filtros.vuelta}_${new Date().getTime()}.pdf`;
-  doc.save(fileName);
+    // Descargar el PDF
+    const comunidadSafe = (data.filtros.comunidad || 'Comunidad').replace(/\s+/g, '_');
+    const vueltaSafe = data.filtros.vuelta || '1';
+    const fileName = `Analisis_${comunidadSafe}_Vuelta${vueltaSafe}_${new Date().getTime()}.pdf`;
+    doc.save(fileName);
+  } catch (error) {
+    console.error('Error al generar PDF:', error);
+    alert('Error al generar el PDF. Por favor, intenta de nuevo.');
+  }
 };
 
 /**
@@ -224,17 +235,22 @@ export const generateFilteredAnalyticsPDF = (data) => {
  * @param {Object} data - Datos de la respuesta individual
  */
 export const generateResponseDetailPDF = (data) => {
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.width;
-  let yPosition = 20;
+  try {
+    if (!data || !data.respuesta) {
+      throw new Error('Datos inválidos para generar PDF');
+    }
 
-  // Título principal
-  doc.setFontSize(18);
-  doc.setFont(undefined, 'bold');
-  doc.text(`Detalle de Respuesta - Boleta #${data.respuesta.boleta_num}`, pageWidth / 2, yPosition, {
-    align: 'center',
-  });
-  yPosition += 12;
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    let yPosition = 20;
+
+    // Título principal
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Detalle de Respuesta - Boleta #${data.respuesta.boleta_num || 'N/A'}`, pageWidth / 2, yPosition, {
+      align: 'center',
+    });
+    yPosition += 12;
 
   // Información general
   doc.setFontSize(10);
@@ -344,7 +360,12 @@ export const generateResponseDetailPDF = (data) => {
     );
   }
 
-  // Descargar el PDF
-  const fileName = `Respuesta_Boleta${data.respuesta.boleta_num}_${new Date().getTime()}.pdf`;
-  doc.save(fileName);
+    // Descargar el PDF
+    const boletaSafe = data.respuesta.boleta_num || 'SinNumero';
+    const fileName = `Respuesta_Boleta${boletaSafe}_${new Date().getTime()}.pdf`;
+    doc.save(fileName);
+  } catch (error) {
+    console.error('Error al generar PDF de respuesta:', error);
+    alert('Error al generar el PDF. Por favor, intenta de nuevo.');
+  }
 };

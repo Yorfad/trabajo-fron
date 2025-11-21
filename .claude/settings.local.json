@@ -15,7 +15,19 @@
       "Bash(python analyze_excel.py:*)",
       "Bash(python generate_sql.py:*)",
       "Bash(python verify_monitors.py:*)",
-      "Bash(python generate_sql_fixed.py:*)"
+      "Bash(python generate_sql_fixed.py:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(git ls-tree:*)",
+      "Bash(git log:*)",
+      "WebFetch(domain:api-rest-cab.onrender.com)",
+      "Bash(node -c:*)",
+      "Bash(git pull:*)",
+      "Bash(npm install:*)",
+      "Bash(if exist \"node_modules\\.vite\" rmdir /s /q \"node_modules\\.vite\")",
+      "Bash(if exist \"dist\" rmdir /s /q \"dist\")",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": []

@@ -171,20 +171,28 @@ export default function SurveyFillForm() {
     }
   };
 
-  // Maneja el cambio de comunidad - calcula vuelta automáticamente
+  // Estado para manejar la vuelta máxima existente
+  const [vueltaMax, setVueltaMax] = useState(0);
+
+  // Maneja el cambio de comunidad - obtiene la vuelta máxima existente
   const handleComunidadChange = async (id_comunidad) => {
     if (id_comunidad) {
       try {
         // Obtener el conteo de respuestas para esta comunidad y encuesta
         const res = await getResponsesCount(id_comunidad, surveyId);
+        const maxVuelta = res.data.next_vuelta - 1; // next_vuelta - 1 = última vuelta guardada
+        setVueltaMax(maxVuelta);
+
+        // Establecer la vuelta por defecto como la siguiente disponible
         setHeaderData((prev) => ({
           ...prev,
           id_comunidad,
-          vuelta: res.data.next_vuelta, // Auto-calcular vuelta
+          vuelta: res.data.next_vuelta,
         }));
       } catch (err) {
-        console.error('Error calculando vuelta:', err);
-        // Si falla, mantener vuelta en 1
+        console.error('Error obteniendo información de vueltas:', err);
+        // Si falla, permitir desde vuelta 1
+        setVueltaMax(0);
         setHeaderData((prev) => ({
           ...prev,
           id_comunidad,
@@ -197,6 +205,7 @@ export default function SurveyFillForm() {
         id_comunidad: '',
         vuelta: 1,
       }));
+      setVueltaMax(0);
     }
   };
 
@@ -611,21 +620,19 @@ export default function SurveyFillForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6">
       <div className="mx-auto max-w-4xl">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <button
-              onClick={() => navigate('/surveyor/list')}
-              className="mb-2 flex items-center gap-2 text-gray-600 transition hover:text-gray-800"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Volver a Mis Encuestas
-            </button>
-            <h1 className="text-3xl font-bold text-gray-800">{survey?.titulo}</h1>
-            <p className="mt-1 text-gray-600">{survey?.descripcion}</p>
-          </div>
+        <div className="mb-4 sm:mb-6">
+          <button
+            onClick={() => navigate('/surveyor/list')}
+            className="mb-3 flex items-center gap-2 text-sm text-gray-600 transition hover:text-gray-800 sm:text-base"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver a Mis Encuestas
+          </button>
+          <h1 className="text-2xl font-bold text-gray-800 sm:text-3xl">{survey?.titulo}</h1>
+          <p className="mt-1 text-sm text-gray-600 sm:text-base">{survey?.descripcion}</p>
         </div>
 
         {error && (
@@ -639,12 +646,12 @@ export default function SurveyFillForm() {
 
         <form onSubmit={handleSubmit}>
           {/* Datos del Encabezado */}
-          <div className="mb-6 rounded-lg bg-white p-6 shadow-md">
-            <h2 className="mb-4 text-xl font-semibold text-gray-800">
+          <div className="mb-4 rounded-lg bg-white p-4 shadow-md sm:mb-6 sm:p-6">
+            <h2 className="mb-3 text-lg font-semibold text-gray-800 sm:mb-4 sm:text-xl">
               Datos de la Encuesta
             </h2>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
               {/* Código de Boleta */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
@@ -727,6 +734,38 @@ export default function SurveyFillForm() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Vuelta/Ronda */}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Número de Vuelta <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={headerData.vuelta}
+                  onChange={(e) => handleHeaderChange('vuelta', parseInt(e.target.value))}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                  required
+                  disabled={!headerData.id_comunidad}
+                >
+                  <option value="">
+                    {headerData.id_comunidad ? 'Seleccionar vuelta...' : 'Primero seleccione comunidad'}
+                  </option>
+                  {/* Generar opciones desde la vuelta mínima permitida hasta 10 */}
+                  {headerData.id_comunidad && Array.from({ length: 11 - Math.max(1, vueltaMax) }, (_, i) => {
+                    const vueltaNum = Math.max(1, vueltaMax) + i;
+                    return (
+                      <option key={vueltaNum} value={vueltaNum}>
+                        Vuelta {vueltaNum} {vueltaNum === vueltaMax + 1 ? '(Siguiente)' : vueltaNum <= vueltaMax ? '(Ya existe)' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+                {vueltaMax > 0 && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Última vuelta guardada: {vueltaMax}. Solo puede seleccionar desde la vuelta {vueltaMax} en adelante.
+                  </p>
+                )}
               </div>
 
               {/* Nombre Encuestada */}
@@ -1025,19 +1064,19 @@ export default function SurveyFillForm() {
             <button
               type="button"
               onClick={() => navigate('/surveyor/list')}
-              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-6 py-3 text-gray-700 transition hover:bg-gray-50"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 sm:flex-none sm:px-6 sm:py-3 sm:text-base"
               disabled={submitting}
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               Cancelar
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700 disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50 sm:px-6 sm:py-3 sm:text-base"
             >
-              <Save className="h-5 w-5" />
-              {submitting ? 'Enviando...' : 'Enviar Respuestas'}
+              <Save className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="truncate">{submitting ? 'Enviando...' : 'Enviar Respuestas'}</span>
             </button>
           </div>
         </form>

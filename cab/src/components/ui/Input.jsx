@@ -12,7 +12,13 @@ const Input = ({
   className = '',
   name,
   required,
+  ...props
 }) => {
+  // Clase para eliminar las flechas de los inputs numéricos
+  const numberInputClass = type === 'number'
+    ? '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+    : '';
+
   return (
     <div className={`mb-4 ${className}`}>
       {label && (
@@ -29,7 +35,8 @@ const Input = ({
         // 2. Pasa las nuevas props 'name' y 'required' al input
         name={name}
         required={required}
-        className="w-full rounded-md border border-gray-300 p-2 focus:border-indigo-500 focus:ring-indigo-500"
+        className={`w-full rounded-md border border-gray-300 p-2 focus:border-indigo-500 focus:ring-indigo-500 ${numberInputClass}`}
+        {...props}
       />
     </div>
   );

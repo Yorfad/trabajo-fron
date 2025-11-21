@@ -29,6 +29,7 @@ import { getComunidades } from '../../api/catalogos';
 import { getSurveys } from '../../api/surveys';
 import { generateFilteredAnalyticsPDF } from '../../utils/pdfGenerator';
 import API from '../../api/axiosInstance';
+import { calcularPromedioRespuesta, obtenerColorSemaforo } from '../../utils/calculateAverage';
 
 export default function UnifiedDashboard() {
   const navigate = useNavigate();
@@ -99,6 +100,106 @@ export default function UnifiedDashboard() {
     }
   };
 
+  /**
+   * Recalcula todos los promedios usando la lógica correcta en el frontend
+   * Proceso: Agrupar por pregunta → Sumar puntos → Promediar totales
+   */
+  const recalcularPromediosCompletos = (data) => {
+    if (!data) return data;
+
+    console.log('🔄 Recalculando promedios en frontend...');
+
+    // 1. RECALCULAR RESPUESTAS INDIVIDUALES
+    if (data.respuestas && Array.isArray(data.respuestas)) {
+      data.respuestas = data.respuestas.map(respuesta => {
+        if (!respuesta.detalles || respuesta.detalles.length === 0) {
+          return respuesta;
+        }
+
+        const promedio = calcularPromedioRespuesta(respuesta.detalles);
+        const colorSemaforo = obtenerColorSemaforo(promedio);
+
+        return {
+          ...respuesta,
+          promedio_respuesta: promedio.toFixed(2),
+          color_semaforo: colorSemaforo
+        };
+      });
+    }
+
+    // 2. RECALCULAR SEMÁFORO POR CATEGORÍAS
+    if (data.semaforo_categorias && Array.isArray(data.semaforo_categorias)) {
+      data.semaforo_categorias = data.semaforo_categorias.map(categoria => {
+        // Obtener todas las respuestas de esta categoría
+        const detallesCategoria = [];
+
+        if (data.respuestas && Array.isArray(data.respuestas)) {
+          data.respuestas.forEach(respuesta => {
+            if (respuesta.detalles && Array.isArray(respuesta.detalles)) {
+              const detallesCat = respuesta.detalles.filter(d =>
+                d.categoria_nombre === categoria.categoria ||
+                d.categoria === categoria.categoria
+              );
+              detallesCategoria.push(...detallesCat);
+            }
+          });
+        }
+
+        const promedio = calcularPromedioRespuesta(detallesCategoria);
+        const colorSemaforo = obtenerColorSemaforo(promedio);
+
+        return {
+          ...categoria,
+          promedio: promedio.toFixed(2),
+          color_semaforo: colorSemaforo
+        };
+      });
+    }
+
+    // 3. RECALCULAR SEMÁFORO POR PREGUNTAS
+    if (data.semaforo_preguntas && Array.isArray(data.semaforo_preguntas)) {
+      data.semaforo_preguntas = data.semaforo_preguntas.map(pregunta => {
+        // Calcular el puntaje por usuario para esta pregunta
+        const puntajesPorUsuario = [];
+
+        if (data.respuestas && Array.isArray(data.respuestas)) {
+          data.respuestas.forEach(respuesta => {
+            if (respuesta.detalles && Array.isArray(respuesta.detalles)) {
+              // Filtrar detalles de esta pregunta para este usuario
+              const detallesPreg = respuesta.detalles.filter(d =>
+                d.id_pregunta === pregunta.id_pregunta
+              );
+
+              // Sumar los puntajes de esta pregunta (para OpcionMultiple)
+              if (detallesPreg.length > 0) {
+                const puntajeUsuario = detallesPreg.reduce((sum, d) =>
+                  sum + parseFloat(d.puntaje_0a10 || 0), 0
+                );
+                puntajesPorUsuario.push(puntajeUsuario);
+              }
+            }
+          });
+        }
+
+        // Calcular el promedio de los puntajes de todos los usuarios
+        const promedio = puntajesPorUsuario.length > 0
+          ? puntajesPorUsuario.reduce((sum, p) => sum + p, 0) / puntajesPorUsuario.length
+          : 0;
+
+        const colorSemaforo = obtenerColorSemaforo(promedio);
+
+        return {
+          ...pregunta,
+          promedio: promedio.toFixed(2),
+          color_semaforo: colorSemaforo
+        };
+      });
+    }
+
+    console.log('✅ Promedios recalculados correctamente');
+    return data;
+  };
+
   const handleApplyFilters = async () => {
     if (!selectedComunidad || !selectedVuelta || !selectedEncuesta) {
       setError('Debe seleccionar comunidad, vuelta y encuesta');
@@ -115,7 +216,10 @@ export default function UnifiedDashboard() {
         selectedVuelta,
         selectedEncuesta
       );
-      setAnalyticsData(res.data);
+
+      // 🔥 RECALCULAR TODOS LOS PROMEDIOS EN EL FRONTEND
+      const datosRecalculados = recalcularPromediosCompletos(res.data);
+      setAnalyticsData(datosRecalculados);
     } catch (err) {
       console.error('Error al obtener análisis:', err);
       setError(err.response?.data?.msg || 'Error al cargar datos');
@@ -204,15 +308,15 @@ export default function UnifiedDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-800">Dashboard CAB</h1>
+        <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-2xl font-bold text-gray-800 sm:text-3xl">Dashboard CAB</h1>
           <button
             onClick={loadGeneralStats}
             disabled={loading}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50 sm:text-base"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Actualizar
@@ -240,13 +344,13 @@ export default function UnifiedDashboard() {
         </div>
 
         {/* Filtros */}
-        <div className="mb-6 rounded-lg bg-white p-6 shadow">
-          <div className="mb-4 flex items-center gap-2">
+        <div className="mb-4 rounded-lg bg-white p-4 shadow sm:mb-6 sm:p-6">
+          <div className="mb-3 flex items-center gap-2 sm:mb-4">
             <Filter className="h-5 w-5 text-blue-600" />
-            <h2 className="text-lg font-semibold">Análisis Filtrado</h2>
+            <h2 className="text-base font-semibold sm:text-lg">Análisis Filtrado</h2>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-5">
             {/* Comunidad */}
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -435,12 +539,14 @@ export default function UnifiedDashboard() {
             </div>
 
             {/* Semáforo por Pregunta */}
-            <div className="mb-6 rounded-lg bg-white p-6 shadow">
-              <h2 className="mb-4 text-xl font-bold text-gray-900">
+            <div className="mb-4 rounded-lg bg-white p-4 shadow sm:mb-6 sm:p-6">
+              <h2 className="mb-3 text-lg font-bold text-gray-900 sm:mb-4 sm:text-xl">
                 Semáforo por Pregunta
               </h2>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="inline-block min-w-full align-middle">
+                  <div className="overflow-hidden">
+                    <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -488,20 +594,24 @@ export default function UnifiedDashboard() {
                     ))}
                   </tbody>
                 </table>
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Tabla de Respuestas Individuales */}
-            <div className="rounded-lg bg-white p-6 shadow">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">
+            <div className="rounded-lg bg-white p-4 shadow sm:p-6">
+              <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="text-lg font-bold text-gray-900 sm:text-xl">
                   Respuestas Individuales
                 </h2>
                 <div className="text-sm text-gray-500">
                   Total: {analyticsData.respuestas.length}
                 </div>
               </div>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="inline-block min-w-full align-middle">
+                  <div className="overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -568,6 +678,8 @@ export default function UnifiedDashboard() {
                     ))}
                   </tbody>
                 </table>
+                  </div>
+                </div>
               </div>
             </div>
           </>

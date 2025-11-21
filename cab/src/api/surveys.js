@@ -39,6 +39,21 @@ export const updateSurveyStatus = (id, estado) => {
   return API.put(`/encuestas/${id}/estado`, { estado });
 };
 
-// NOTA: Basado en la API que mostraste, no hay un "Editar" completo
-// (PUT /encuestas/{id}) ni un "Eliminar" (DELETE /encuestas/{id}).
-// Solo se puede cambiar el ESTADO (Activa/Inactiva).
+/**
+ * Verifica si una encuesta tiene respuestas registradas.
+ * Corresponde a: GET /encuestas/{id}/has-responses
+ * @param {number|string} id - El ID de la encuesta
+ * @returns {Promise} - { hasResponses: boolean, respuestas_count: number }
+ */
+export const checkSurveyHasResponses = (id) => {
+  return API.get(`/encuestas/${id}/has-responses`);
+};
+
+/**
+ * Elimina una encuesta (solo si no tiene respuestas).
+ * Corresponde a: DELETE /encuestas/{id}
+ * @param {number|string} id - El ID de la encuesta
+ */
+export const deleteSurvey = (id) => {
+  return API.delete(`/encuestas/${id}`);
+};

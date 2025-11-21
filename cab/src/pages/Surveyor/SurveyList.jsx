@@ -60,17 +60,17 @@ const SurveyList = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Mis Encuestas</h1>
-            <p className="mt-1 text-gray-600">Encuestas disponibles para completar</p>
+            <h1 className="text-2xl font-bold text-gray-800 sm:text-3xl">Mis Encuestas</h1>
+            <p className="mt-1 text-sm text-gray-600 sm:text-base">Encuestas disponibles para completar</p>
           </div>
           <button
             onClick={loadSurveys}
             disabled={loading}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50 sm:text-base"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Actualizar

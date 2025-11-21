@@ -64,18 +64,21 @@ function UserManagement() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Gestion de usuarios</h1>
-        <button
-          onClick={handleOpenCreate}
-          className="rounded-lg bg-blue-500 px-4 py-2 font-bold text-white shadow hover:bg-blue-700"
-        >
-          Crear nuevo usuario
-        </button>
-      </div>
-      {/* ¡CAMBIOS EN LA TABLA AQUÍ! */}
-      <div className="overflow-x-auto rounded-lg bg-white shadow-md">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-2xl font-bold text-gray-800 sm:text-3xl">Gestión de Usuarios</h1>
+          <button
+            onClick={handleOpenCreate}
+            className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow transition hover:bg-blue-700 sm:text-base"
+          >
+            Crear Nuevo Usuario
+          </button>
+        </div>
+        {/* Tabla responsive */}
+        <div className="overflow-x-auto rounded-lg bg-white shadow-md -mx-3 sm:mx-0">
+          <div className="inline-block min-w-full align-middle">
+            <div className="overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-100">
             <tr>
@@ -146,18 +149,21 @@ function UserManagement() {
             )}
           </tbody>
         </table>
-      </div>
+            </div>
+          </div>
+        </div>
 
-      {(modalMode === 'create' || modalMode === 'edit') && (
-        <UserFormModal user={selectedUser} onClose={handleCloseModals} onSuccess={handleSuccess} />
-      )}
-      {userToDelete && (
-        <DeleteUserModal
-          user={userToDelete}
-          onClose={handleCloseModals}
-          onSuccess={handleSuccess}
-        />
-      )}
+        {(modalMode === 'create' || modalMode === 'edit') && (
+          <UserFormModal user={selectedUser} onClose={handleCloseModals} onSuccess={handleSuccess} />
+        )}
+        {userToDelete && (
+          <DeleteUserModal
+            user={userToDelete}
+            onClose={handleCloseModals}
+            onSuccess={handleSuccess}
+          />
+        )}
+      </div>
     </div>
   );
 }
