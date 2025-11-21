@@ -580,9 +580,6 @@ export default function UnifiedDashboard() {
                         Tipo
                       </th>
                       <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
-                        Opciones Sel.
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
                         Promedio
                       </th>
                       <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -604,9 +601,6 @@ export default function UnifiedDashboard() {
                         </td>
                         <td className="px-4 py-3 text-center text-xs text-gray-500">
                           {preg.tipo}
-                        </td>
-                        <td className="px-4 py-3 text-center text-sm font-medium text-blue-600">
-                          {preg.promedio_opciones_seleccionadas || 0}/{preg.total_opciones || 0}
                         </td>
                         <td className="px-4 py-3 text-center text-sm font-semibold">
                           {preg.promedio}
