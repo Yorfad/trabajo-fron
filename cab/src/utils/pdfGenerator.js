@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import 'jspdf-autotable';
 
 /**
  * Mapea colores de semáforo a colores RGB para PDF

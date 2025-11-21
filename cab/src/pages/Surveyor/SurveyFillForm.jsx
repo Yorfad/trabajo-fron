@@ -171,41 +171,20 @@ export default function SurveyFillForm() {
     }
   };
 
-  // Estado para manejar la vuelta máxima existente
-  const [vueltaMax, setVueltaMax] = useState(0);
-
-  // Maneja el cambio de comunidad - obtiene la vuelta máxima existente
+  // Maneja el cambio de comunidad - sin restricciones de vuelta
   const handleComunidadChange = async (id_comunidad) => {
     if (id_comunidad) {
-      try {
-        // Obtener el conteo de respuestas para esta comunidad y encuesta
-        const res = await getResponsesCount(id_comunidad, surveyId);
-        const maxVuelta = res.data.next_vuelta - 1; // next_vuelta - 1 = última vuelta guardada
-        setVueltaMax(maxVuelta);
-
-        // Establecer la vuelta por defecto como la siguiente disponible
-        setHeaderData((prev) => ({
-          ...prev,
-          id_comunidad,
-          vuelta: res.data.next_vuelta,
-        }));
-      } catch (err) {
-        console.error('Error obteniendo información de vueltas:', err);
-        // Si falla, permitir desde vuelta 1
-        setVueltaMax(0);
-        setHeaderData((prev) => ({
-          ...prev,
-          id_comunidad,
-          vuelta: 1,
-        }));
-      }
+      setHeaderData((prev) => ({
+        ...prev,
+        id_comunidad,
+        vuelta: 1, // Valor por defecto
+      }));
     } else {
       setHeaderData((prev) => ({
         ...prev,
         id_comunidad: '',
         vuelta: 1,
       }));
-      setVueltaMax(0);
     }
   };
 
@@ -741,31 +720,32 @@ export default function SurveyFillForm() {
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Número de Vuelta <span className="text-red-500">*</span>
                 </label>
-                <select
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
                   value={headerData.vuelta}
-                  onChange={(e) => handleHeaderChange('vuelta', parseInt(e.target.value))}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Solo permitir números enteros positivos
+                    if (value === '' || (parseInt(value) > 0 && Number.isInteger(parseFloat(value)))) {
+                      handleHeaderChange('vuelta', value === '' ? '' : parseInt(value));
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Si está vacío al salir del campo, establecer 1
+                    if (e.target.value === '') {
+                      handleHeaderChange('vuelta', 1);
+                    }
+                  }}
                   className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                  placeholder="Ej: 1"
                   required
                   disabled={!headerData.id_comunidad}
-                >
-                  <option value="">
-                    {headerData.id_comunidad ? 'Seleccionar vuelta...' : 'Primero seleccione comunidad'}
-                  </option>
-                  {/* Generar opciones desde la vuelta mínima permitida hasta 10 */}
-                  {headerData.id_comunidad && Array.from({ length: 11 - Math.max(1, vueltaMax) }, (_, i) => {
-                    const vueltaNum = Math.max(1, vueltaMax) + i;
-                    return (
-                      <option key={vueltaNum} value={vueltaNum}>
-                        Vuelta {vueltaNum} {vueltaNum === vueltaMax + 1 ? '(Siguiente)' : vueltaNum <= vueltaMax ? '(Ya existe)' : ''}
-                      </option>
-                    );
-                  })}
-                </select>
-                {vueltaMax > 0 && (
-                  <p className="mt-1 text-xs text-gray-500">
-                    Última vuelta guardada: {vueltaMax}. Solo puede seleccionar desde la vuelta {vueltaMax} en adelante.
-                  </p>
-                )}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Ingrese cualquier número entero positivo (1, 2, 3, ...)
+                </p>
               </div>
 
               {/* Nombre Encuestada */}
