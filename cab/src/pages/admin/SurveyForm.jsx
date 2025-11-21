@@ -40,7 +40,7 @@ const newOptionInitialState = {
   orden: 1,
   // Campos para preguntas condicionales
   condicional: false,
-  condicional_pregunta_id: null,
+  condicional_pregunta_orden: null, // Número de orden de la pregunta condicional (1, 2, 3...)
   // Campo para opciones excluyentes (bloquean otras respuestas)
   excluyente: false,
 };
@@ -269,7 +269,7 @@ function SurveyForm() {
                 puntos: 10,
                 orden: 1,
                 condicional: false,
-                condicional_pregunta_id: null,
+                condicional_pregunta_orden: null,
                 excluyente: false,
               },
               {
@@ -279,7 +279,7 @@ function SurveyForm() {
                 puntos: 0,
                 orden: 2,
                 condicional: false,
-                condicional_pregunta_id: null,
+                condicional_pregunta_orden: null,
                 excluyente: false,
               }
             ];
@@ -423,7 +423,7 @@ function SurveyForm() {
       puntos: 1,
       orden: index + 1,
       condicional: false,
-      condicional_pregunta_id: null,
+      condicional_pregunta_orden: null,
       excluyente: false,
     }));
 
@@ -909,17 +909,17 @@ function SurveyForm() {
 
                             {opcion.condicional && (
                               <select
-                                name="condicional_pregunta_id"
-                                value={opcion.condicional_pregunta_id || ''}
+                                name="condicional_pregunta_orden"
+                                value={opcion.condicional_pregunta_orden || ''}
                                 onChange={(e) => handleOptionChange(pregunta.tempId, opcion.tempId, e)}
                                 className="rounded border border-gray-300 px-2 py-1 text-sm"
                               >
                                 <option value="">-- Seleccionar pregunta --</option>
                                 {survey.preguntas
                                   .filter(p => p.tempId !== pregunta.tempId)
-                                  .map(p => (
-                                    <option key={p.tempId} value={p.tempId}>
-                                      {p.texto || `Pregunta ${survey.preguntas.indexOf(p) + 1}`}
+                                  .map((p, idx) => (
+                                    <option key={p.tempId} value={idx + 1}>
+                                      Pregunta {idx + 1}: {p.texto ? (p.texto.substring(0, 50) + (p.texto.length > 50 ? '...' : '')) : 'Sin texto'}
                                     </option>
                                   ))}
                               </select>

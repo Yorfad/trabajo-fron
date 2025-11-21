@@ -207,8 +207,10 @@ export default function SurveyFillForm() {
     // Manejar lógica condicional
     if (tipo === 'OpcionUnica' || tipo === 'SiNo') {
       const opcionId = parseInt(value);
-      const pregunta = survey?.preguntas?.find(p => p.id_pregunta === preguntaId);
-      const opcionSeleccionada = pregunta?.opciones?.find(o => o.id_opcion === opcionId);
+      // Convertir preguntaId a número para comparar
+      const preguntaIdNum = parseInt(preguntaId);
+      const pregunta = survey?.preguntas?.find(p => p.id_pregunta === preguntaIdNum);
+      const opcionSeleccionada = pregunta?.opciones?.find(o => parseInt(o.id_opcion) === opcionId);
 
       console.log('🔎 Opción seleccionada:', {
         opcionId,
@@ -257,8 +259,9 @@ export default function SurveyFillForm() {
         let nuevasOpciones = [...(current.opciones_multiple || [])];
 
         // Encontrar la pregunta y la opción seleccionada
-        const pregunta = survey?.preguntas.find(p => p.id_pregunta === preguntaId);
-        const opcionSeleccionada = pregunta?.opciones.find(opt => opt.id_opcion === opcionId);
+        const preguntaIdNum = parseInt(preguntaId);
+        const pregunta = survey?.preguntas.find(p => p.id_pregunta === preguntaIdNum);
+        const opcionSeleccionada = pregunta?.opciones.find(opt => parseInt(opt.id_opcion) === opcionId);
 
         // Convertir excluyente a booleano
         const esExcluyente = Boolean(opcionSeleccionada?.excluyente);
@@ -304,11 +307,12 @@ export default function SurveyFillForm() {
 
       // Para otros tipos de pregunta
       // Encontrar la pregunta y opción para manejar excluyentes
-      const pregunta = survey?.preguntas.find(p => p.id_pregunta === preguntaId);
+      const preguntaIdNum = parseInt(preguntaId);
+      const pregunta = survey?.preguntas.find(p => p.id_pregunta === preguntaIdNum);
       let esNoAplica = false;
 
       if (tipo === 'OpcionUnica') {
-        const opcionSeleccionada = pregunta?.opciones.find(opt => opt.id_opcion === parseInt(value));
+        const opcionSeleccionada = pregunta?.opciones.find(opt => parseInt(opt.id_opcion) === parseInt(value));
         esNoAplica = Boolean(opcionSeleccionada?.excluyente);
       }
 
@@ -319,7 +323,7 @@ export default function SurveyFillForm() {
         datosRespuesta = { valor_numerico: parseFloat(value) || 0 };
       } else if (tipo === 'SiNo') {
         // Ahora SiNo funciona igual que OpcionUnica (usa id_opcion)
-        const opcionSeleccionada = pregunta?.opciones.find(opt => opt.id_opcion === parseInt(value));
+        const opcionSeleccionada = pregunta?.opciones.find(opt => parseInt(opt.id_opcion) === parseInt(value));
         datosRespuesta = {
           id_opcion: parseInt(value),
           es_no_aplica: Boolean(opcionSeleccionada?.excluyente)
