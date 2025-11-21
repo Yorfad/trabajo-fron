@@ -190,13 +190,19 @@ export default function SurveyFillForm() {
       const pregunta = survey?.preguntas?.find(p => p.id_pregunta === preguntaId);
       const opcionSeleccionada = pregunta?.opciones?.find(o => o.id_opcion === opcionId);
 
-      if (opcionSeleccionada?.condicional && opcionSeleccionada?.condicional_pregunta_id) {
+      // Convertir condicional a booleano (puede venir como 0/1 desde SQL Server)
+      const esCondicional = Boolean(opcionSeleccionada?.condicional);
+
+      if (esCondicional && opcionSeleccionada?.condicional_pregunta_id) {
         // Mostrar pregunta condicional
         setVisibleQuestions(prev => new Set([...prev, opcionSeleccionada.condicional_pregunta_id]));
       } else {
         // Ocultar preguntas condicionales de otras opciones de esta pregunta
         const otrasPreguntasCondicionales = pregunta?.opciones
-          ?.filter(o => o.id_opcion !== opcionId && o.condicional && o.condicional_pregunta_id)
+          ?.filter(o => {
+            const esOtraCondicional = Boolean(o.condicional);
+            return o.id_opcion !== opcionId && esOtraCondicional && o.condicional_pregunta_id;
+          })
           ?.map(o => o.condicional_pregunta_id) || [];
 
         setVisibleQuestions(prev => {
@@ -219,15 +225,18 @@ export default function SurveyFillForm() {
         const pregunta = survey?.preguntas.find(p => p.id_pregunta === preguntaId);
         const opcionSeleccionada = pregunta?.opciones.find(opt => opt.id_opcion === opcionId);
 
+        // Convertir excluyente a booleano
+        const esExcluyente = Boolean(opcionSeleccionada?.excluyente);
+
         if (checked) {
           // Si la opción es excluyente, limpiar todas las demás
-          if (opcionSeleccionada?.excluyente) {
+          if (esExcluyente) {
             nuevasOpciones = [opcionId];
           } else {
             // Verificar si ya hay una opción excluyente seleccionada
             const idExcluyente = nuevasOpciones.find(id => {
               const opt = pregunta?.opciones.find(o => o.id_opcion === id);
-              return opt?.excluyente;
+              return Boolean(opt?.excluyente);
             });
 
             // Si ya hay una excluyente, primero quitarla
@@ -253,7 +262,7 @@ export default function SurveyFillForm() {
             tipo: tipo,
             opciones_multiple: nuevasOpciones,
             // Marcar si es una respuesta excluyente (No Aplica)
-            es_no_aplica: opcionSeleccionada?.excluyente && checked,
+            es_no_aplica: esExcluyente && checked,
           },
         };
       }
@@ -265,7 +274,27 @@ export default function SurveyFillForm() {
 
       if (tipo === 'OpcionUnica') {
         const opcionSeleccionada = pregunta?.opciones.find(opt => opt.id_opcion === parseInt(value));
-        esNoAplica = opcionSeleccionada?.excluyente || false;
+        esNoAplica = Boolean(opcionSeleccionada?.excluyente);
+      }
+
+      // Para tipo SiNo, necesitamos guardar el id_opcion como OpcionUnica
+      let datosRespuesta = {};
+
+      if (tipo === 'Numerica') {
+        datosRespuesta = { valor_numerico: parseFloat(value) || 0 };
+      } else if (tipo === 'SiNo') {
+        // Ahora SiNo funciona igual que OpcionUnica (usa id_opcion)
+        const opcionSeleccionada = pregunta?.opciones.find(opt => opt.id_opcion === parseInt(value));
+        datosRespuesta = {
+          id_opcion: parseInt(value),
+          es_no_aplica: Boolean(opcionSeleccionada?.excluyente)
+        };
+      } else if (tipo === 'OpcionUnica') {
+        datosRespuesta = { id_opcion: parseInt(value), es_no_aplica: esNoAplica };
+      } else if (tipo === 'Texto' || tipo === 'Fecha' || tipo === 'Catalogo') {
+        datosRespuesta = { valor_texto: value };
+      } else {
+        datosRespuesta = { valor: value };
       }
 
       return {
@@ -273,15 +302,7 @@ export default function SurveyFillForm() {
         [preguntaId]: {
           id_pregunta: preguntaId,
           tipo: tipo,
-          ...(tipo === 'Numerica'
-            ? { valor_numerico: parseFloat(value) || 0 }
-            : tipo === 'SiNo'
-            ? { valor_texto: value, puntos: value === 'Si' ? 1 : 0 }
-            : tipo === 'OpcionUnica'
-            ? { id_opcion: parseInt(value), es_no_aplica: esNoAplica }
-            : tipo === 'Texto' || tipo === 'Fecha' || tipo === 'Catalogo'
-            ? { valor_texto: value }
-            : { valor: value }),
+          ...datosRespuesta,
         },
       };
     });
@@ -688,7 +709,11 @@ export default function SurveyFillForm() {
               ?.filter((pregunta) => {
                 // Verificar si esta pregunta es condicional (aparece en alguna opción)
                 const esCondicional = survey.preguntas.some(p =>
-                  p.opciones?.some(o => o.condicional && o.condicional_pregunta_id === pregunta.id_pregunta)
+                  p.opciones?.some(o => {
+                    // Convertir condicional a booleano (puede venir como 0/1 desde SQL Server)
+                    const esCondicionalBool = Boolean(o.condicional);
+                    return esCondicionalBool && o.condicional_pregunta_id === pregunta.id_pregunta;
+                  })
                 );
 
                 // Mostrar si NO es condicional O si está en el set de visibles
@@ -774,14 +799,30 @@ export default function SurveyFillForm() {
                       const opcionesSeleccionadas = answers[pregunta.id_pregunta]?.opciones_multiple || [];
                       const isChecked = opcionesSeleccionadas.includes(opcionIdNum);
 
+                      // Verificar si hay una opción excluyente seleccionada
+                      const hayExcluyenteSeleccionada = opcionesSeleccionadas.some(idSel => {
+                        const opSel = pregunta.opciones.find(o => parseInt(o.id_opcion) === idSel);
+                        return Boolean(opSel?.excluyente);
+                      });
+
+                      // Deshabilitar esta opción si:
+                      // - Hay una excluyente seleccionada Y esta opción NO es la excluyente seleccionada
+                      // - O si esta opción NO es excluyente pero hay una excluyente seleccionada
+                      const esExcluyente = Boolean(opcion.excluyente);
+                      const isDisabled = hayExcluyenteSeleccionada && !isChecked && !esExcluyente;
+
                       return (
-                        <div key={opcion.id_opcion} className="flex items-center gap-2 p-2 border rounded">
+                        <div
+                          key={opcion.id_opcion}
+                          className={`flex items-center gap-2 p-2 border rounded ${isDisabled ? 'opacity-50 bg-gray-50' : ''}`}
+                        >
                           <input
                             id={inputId}
                             type="checkbox"
                             name={`q_${pregunta.id_pregunta}[]`}
                             value={opcion.id_opcion}
                             checked={isChecked}
+                            disabled={isDisabled}
                             onChange={(e) => {
                               handleAnswerChange(pregunta.id_pregunta, e.target.value, 'OpcionMultiple', e.target.checked);
                             }}
@@ -793,10 +834,10 @@ export default function SurveyFillForm() {
                           />
                           <label
                             htmlFor={inputId}
-                            className="cursor-pointer select-none flex-1"
+                            className={`select-none flex-1 ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                           >
                             <RenderMarkdown text={opcion.etiqueta} />
-                            {opcion.excluyente && <span className="ml-2 text-xs text-orange-600">(No Aplica)</span>}
+                            {opcion.excluyente && <span className="ml-2 text-xs text-orange-600 font-semibold">(Excluyente)</span>}
                           </label>
                           {/* Indicador visual del estado */}
                           <span className={`text-xs px-2 py-1 rounded ${isChecked ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
